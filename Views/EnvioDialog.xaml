@@ -1,0 +1,533 @@
+<Window x:Class="ControleEnvios.Views.EnvioDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cadastro / Edição de Envio" Height="780" Width="980"
+        WindowStartupLocation="CenterOwner"
+        MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}"
+        MaxWidth="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Width}"
+        Loaded="Window_Loaded"
+        Background="#0f172a">
+    
+    <Window.Resources>
+        <!-- Estilo dos Cabeçalhos das Colunas da Tabela de Itens (100% Dark Moderno) -->
+        <Style x:Key="ItemColumnHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#0b1329"/>
+            <Setter Property="Foreground" Value="#94a3b8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="BorderBrush" Value="#1e293b"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Estilo de Linha com Alternância e Hover Suave -->
+        <Style x:Key="ItemRowStyle" TargetType="DataGridRow">
+            <Setter Property="Background" Value="#0f172a"/>
+            <Setter Property="Foreground" Value="#f8fafc"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="#1e293b"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1e293b"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#172554"/>
+                    <Setter Property="Foreground" Value="#93c5fd"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Estilo de Célula Dark (Sem bordas brancas ou seleção padrão aero) -->
+        <Style x:Key="ItemCellStyle" TargetType="DataGridCell">
+            <Setter Property="Foreground" Value="#f8fafc"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="#ffffff"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Estilo para Edição de Célula (TextBox Dark) -->
+        <Style x:Key="CellEditTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#1e293b"/>
+            <Setter Property="Foreground" Value="#f8fafc"/>
+            <Setter Property="BorderBrush" Value="#3b82f6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="CaretBrush" Value="#38bdf8"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Topo: Título e DropZone de PDF -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtTituloModal" Grid.Column="0" Text="Novo Envio de Pedido" FontSize="20" FontWeight="Bold" Foreground="#f8fafc" VerticalAlignment="Center"/>
+                <CheckBox x:Name="ChkDesativarAvisos" Grid.Column="1" Content="🔕 Desativar avisos deste envio" Foreground="#fb923c" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" ToolTip="Oculta alertas de PDF pendente, tentativas de entrega e avisos visuais deste envio" Checked="ChkDesativarAvisos_Changed" Unchecked="ChkDesativarAvisos_Changed"/>
+            </Grid>
+
+            <!-- Banner de Alerta: Cobrado nos Correios sem PDF da Tray -->
+            <Border Grid.Row="1" x:Name="BannerCobradoSemPdf" Background="#451a03" BorderBrush="#f97316" BorderThickness="1.5" CornerRadius="8" Padding="12" Margin="0,0,0,12" Visibility="Collapsed">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="⚠️" FontSize="22" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="ENVIO COBRADO NOS CORREIOS SEM PDF DA TRAY EXTRAÍDO" FontWeight="Bold" Foreground="#fdba74" FontSize="12"/>
+                        <TextBlock x:Name="TxtDetalheCobradoSemPdf" Text="Este pedido foi adicionado via comprovante dos Correios (Gmail) e já foi cobrado, mas os dados da loja ainda não foram processados. Extraia o PDF abaixo para completar os dados." Foreground="#fed7aa" FontSize="11" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="🔕 Silenciar Avisos" Background="#7c2d12" Foreground="#fdba74" BorderThickness="1" BorderBrush="#f97316" Padding="8,4" FontSize="11" FontWeight="SemiBold" Click="BtnSilenciarAvisosBanner_Click" Cursor="Hand" VerticalAlignment="Center" Margin="10,0,0,0" ToolTip="Desativa avisos e alertas para este envio"/>
+                </Grid>
+            </Border>
+
+            <!-- Área de Arrastar e Soltar PDF da Tray -->
+            <Border Grid.Row="2" x:Name="DropZonePdf" Background="#1e293b" BorderBrush="#3b82f6" BorderThickness="2" CornerRadius="10" Padding="14" AllowDrop="True" Drop="DropZonePdf_Drop" DragOver="DropZonePdf_DragOver" MouseLeftButtonDown="DropZonePdf_MouseLeftButtonDown" Cursor="Hand">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="📄" FontSize="28" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                        <TextBlock Text="ARRASTE O PDF DO PEDIDO DA TRAY AQUI" FontWeight="Bold" FontSize="13" Foreground="#60a5fa"/>
+                        <TextBlock Text="Ou clique para selecionar o arquivo PDF (preenchimento automático de cliente, itens e entrega)" FontSize="11" Foreground="#94a3b8"/>
+                    </StackPanel>
+                    <Border Background="#2563eb" CornerRadius="6" Padding="10,4" VerticalAlignment="Center">
+                        <TextBlock Text="Extrair PDF" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Formulário com Scroll -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- Bloco 1: Dados do Pedido e Cliente -->
+                <Border Background="#1e293b" CornerRadius="8" Padding="16" BorderBrush="#334155" BorderThickness="1" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="DADOS DO PEDIDO E DESTINATÁRIO" FontSize="11" FontWeight="Bold" Foreground="#38bdf8" Margin="0,0,0,12"/>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="160"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Nº do Pedido: *" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtNumeroPedido" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" FontWeight="Bold"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Cliente / Destinatário: *" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCliente" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="CPF:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCpf" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Celular / WhatsApp:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCelular" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="E-mail:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtEmail" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Endereço e Complemento separados -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.4*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="1*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Endereço de Entrega (Logradouro, Nº):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtEndereco" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Complemento / Bairro:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtComplemento" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="130"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Cidade:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCidade" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="UF:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtUf" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" MaxLength="2"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="CEP:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCep" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Bloco 2: Origem do Produto (Estoque Próprio ou Dropshipping) -->
+                <Border Background="#1e293b" CornerRadius="8" Padding="16" BorderBrush="#334155" BorderThickness="1" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="ORIGEM DO PRODUTO (REMETENTE)" FontSize="11" FontWeight="Bold" Foreground="#38bdf8" Margin="0,0,0,12"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <RadioButton x:Name="RbOrigemProprio" Content="Estoque Próprio (WebRiders)" IsChecked="True" Foreground="#f8fafc" FontSize="13" Checked="RbOrigem_Checked" Margin="0,0,24,0"/>
+                            <RadioButton x:Name="RbOrigemDrop" Content="Dropshipping (Fornecedor Parceiro)" Foreground="#f8fafc" FontSize="13" Checked="RbOrigem_Checked"/>
+                        </StackPanel>
+
+                        <Grid x:Name="GridFornecedorDrop" Visibility="Collapsed" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Selecione o Fornecedor de Origem:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="CmbFornecedores" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" DisplayMemberPath="DisplayName" SelectedValuePath="Id" SelectionChanged="CmbFornecedores_SelectionChanged"/>
+                            </StackPanel>
+
+                            <Button Grid.Column="2" Content="+ Cadastrar Novo Fornecedor" Background="#334155" Foreground="#38bdf8" BorderThickness="1" BorderBrush="#475569" Padding="12,6" VerticalAlignment="Bottom" Click="BtnNovoFornecedor_Click" Cursor="Hand"/>
+                        </Grid>
+
+                        <TextBlock x:Name="TxtEnderecoOrigemPreview" Foreground="#94a3b8" FontSize="11" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Bloco 3: Dados de Envio e Rastreio -->
+                <Border Background="#1e293b" CornerRadius="8" Padding="16" BorderBrush="#334155" BorderThickness="1" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="EXPEDIÇÃO, RASTREAMENTO E NOTA FISCAL" FontSize="11" FontWeight="Bold" Foreground="#38bdf8" Margin="0,0,0,12"/>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="120"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Nota Fiscal (Nº ou Chave):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtNotaFiscal" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Código de Rastreio:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCodigoRastreio" Background="#0f172a" Foreground="#38bdf8" BorderBrush="#334155" Padding="6" FontWeight="Bold"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Tipo de Rastreio:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="CmbTipoRastreio" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6">
+                                    <ComboBoxItem Content="Postagem Normal" IsSelected="True"/>
+                                    <ComboBoxItem Content="Pré-postagem"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="Data de Envio:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtDataEnvio" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Forma Envio (Tray):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="CmbFormaEnvio" IsEditable="True" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="4" FontSize="12" SelectionChanged="CmbFormaEnvio_SelectionChanged">
+                                    <ComboBoxItem Content="SEDEX"/>
+                                    <ComboBoxItem Content="PAC"/>
+                                    <ComboBoxItem Content="FRETE GRÁTIS"/>
+                                    <ComboBoxItem Content="RETIRADA NA LOJA"/>
+                                    <ComboBoxItem Content="MINI ENVIOS"/>
+                                    <ComboBoxItem Content="TRANSPORTADORA"/>
+                                    <ComboBoxItem Content="JADLOG"/>
+                                    <ComboBoxItem Content="LOGGI"/>
+                                    <ComboBoxItem Content="OUTRO"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Peso (gramas):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtPeso" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Frete da Loja (R$):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtValorFreteLoja" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" TextChanged="TxtValoresFrete_TextChanged"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="Custo Correios (R$):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtValorCorreios" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" TextChanged="TxtValoresFrete_TextChanged"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="8">
+                                <TextBlock Text="Total do Pedido (R$):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtValorPedido" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Background="#0f172a" CornerRadius="6" Padding="10,6" BorderBrush="#334155" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Diferença de Valor (Frete Loja - Correios): " Foreground="#94a3b8" FontSize="11"/>
+                                <TextBlock x:Name="TxtDiferencaFretePreview" Text="—" FontWeight="Bold" FontSize="11" Foreground="#38bdf8"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Bloco 4: Itens do Pedido (Produtos e Quantidades) -->
+                <Border Background="#1e293b" CornerRadius="8" Padding="16" BorderBrush="#334155" BorderThickness="1" Margin="0,0,0,16">
+                    <StackPanel>
+                        <!-- Topo do bloco: Título com ícone, Contador e Botão de Ação -->
+                        <Grid Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="📦 ITENS / PRODUTOS DO PEDIDO" FontSize="11" FontWeight="Bold" Foreground="#38bdf8" VerticalAlignment="Center"/>
+                                <Border x:Name="BadgeContadorItens" Background="#0f172a" BorderBrush="#334155" BorderThickness="1" CornerRadius="10" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="TxtBadgeItens" Text="0 itens" FontSize="10" Foreground="#94a3b8" FontWeight="SemiBold"/>
+                                </Border>
+                            </StackPanel>
+                            <Button Content="+ Adicionar Produto" Background="#2563eb" Foreground="White" BorderThickness="0" Padding="12,5" HorizontalAlignment="Right" Click="BtnAdicionarItem_Click" Cursor="Hand" FontSize="11" FontWeight="Bold">
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="6"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                        </Grid>
+
+                        <!-- Tabela Dark Estilizada (Sem visual branco do Windows default) -->
+                        <DataGrid x:Name="GridItens" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  Background="#0f172a" BorderBrush="#334155" BorderThickness="1"
+                                  RowBackground="#0f172a" AlternatingRowBackground="#141e33"
+                                  Foreground="#f8fafc" HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#1e293b"
+                                  ColumnHeaderStyle="{StaticResource ItemColumnHeaderStyle}"
+                                  RowStyle="{StaticResource ItemRowStyle}"
+                                  CellStyle="{StaticResource ItemCellStyle}"
+                                  MinHeight="90" MaxHeight="220"
+                                  CellEditEnding="GridItens_CellEditEnding">
+                            <DataGrid.Columns>
+                                <!-- Nome do Produto -->
+                                <DataGridTextColumn Header="PRODUTO" Binding="{Binding NomeProduto}" Width="*"
+                                                    EditingElementStyle="{StaticResource CellEditTextBoxStyle}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Setter Property="Foreground" Value="#f8fafc"/>
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                            <Setter Property="ToolTip" Value="{Binding NomeProduto}"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <!-- Referência -->
+                                <DataGridTextColumn Header="REF" Binding="{Binding Referencia}" Width="105"
+                                                    EditingElementStyle="{StaticResource CellEditTextBoxStyle}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#94a3b8"/>
+                                            <Setter Property="FontFamily" Value="Consolas, Segoe UI, sans-serif"/>
+                                            <Setter Property="FontSize" Value="11"/>
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <!-- Tamanho -->
+                                <DataGridTextColumn Header="TAM." Binding="{Binding Tamanho}" Width="65"
+                                                    EditingElementStyle="{StaticResource CellEditTextBoxStyle}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#38bdf8"/>
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <!-- Quantidade -->
+                                <DataGridTextColumn Header="QTD" Binding="{Binding Quantidade}" Width="60"
+                                                    EditingElementStyle="{StaticResource CellEditTextBoxStyle}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Setter Property="Foreground" Value="#ffffff"/>
+                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <!-- Valor Total -->
+                                <DataGridTextColumn Header="VALOR TOTAL" Binding="{Binding ValorTotal, StringFormat=C}" Width="120"
+                                                    EditingElementStyle="{StaticResource CellEditTextBoxStyle}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Setter Property="Foreground" Value="#34d399"/>
+                                            <Setter Property="HorizontalAlignment" Value="Right"/>
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+
+                                <!-- Ações: Botão Remover -->
+                                <DataGridTemplateColumn Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="🗑️ Remover" Foreground="#fecaca" BorderThickness="0" Padding="6,3" FontSize="10" FontWeight="SemiBold" Click="BtnRemoverItem_Click" Cursor="Hand" HorizontalAlignment="Center">
+                                                <Button.Resources>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="CornerRadius" Value="4"/>
+                                                    </Style>
+                                                </Button.Resources>
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="#991b1b"/>
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Background" Value="#dc2626"/>
+                                                                <Setter Property="Foreground" Value="#ffffff"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Estado Vazio (quando não há itens) -->
+                        <Border x:Name="PanelItensVazio" Background="#0f172a" BorderBrush="#334155" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,4,0,0" Visibility="Collapsed">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="📦 Nenhum produto cadastrado neste envio." Foreground="#94a3b8" FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                <TextBlock Text="Arraste o PDF da Tray no topo da tela ou clique em '+ Adicionar Produto' para inserir." Foreground="#64748b" FontSize="10" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Barra de Resumo e Totais dos Produtos -->
+                        <Border Background="#0f172a" CornerRadius="6" Padding="12,8" Margin="0,8,0,0" BorderBrush="#334155" BorderThickness="1">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Total de Produtos: " Foreground="#94a3b8" FontSize="11"/>
+                                    <TextBlock x:Name="TxtResumoQtdItens" Text="0 un." FontWeight="Bold" Foreground="#38bdf8" FontSize="11"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <TextBlock Text="Soma dos Itens: " Foreground="#94a3b8" FontSize="11"/>
+                                    <TextBlock x:Name="TxtResumoValorItens" Text="R$ 0,00" FontWeight="Bold" Foreground="#34d399" FontSize="12"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Bloco 5: Observações -->
+                <Border Background="#1e293b" CornerRadius="8" Padding="16" BorderBrush="#334155" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="OBSERVAÇÕES INTERNAS" FontSize="11" FontWeight="Bold" Foreground="#38bdf8" Margin="0,0,0,6"/>
+                        <TextBox x:Name="TxtObservacoes" Height="50" AcceptsReturn="True" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Rodapé com Botões -->
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" Background="#334155" Foreground="#f8fafc" BorderThickness="0" Padding="16,8" FontWeight="SemiBold" Click="BtnCancelar_Click" Cursor="Hand" Margin="0,0,10,0"/>
+                <Button Content="Salvar Envio" Background="#2563eb" Foreground="White" BorderThickness="0" Padding="24,8" FontWeight="Bold" Click="BtnSalvar_Click" Cursor="Hand"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

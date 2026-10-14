@@ -1,0 +1,166 @@
+<Window x:Class="ControleEnvios.Views.FornecedoresDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Gerenciar Fornecedores de Dropshipping" Height="620" Width="920"
+        WindowStartupLocation="CenterOwner"
+        Background="#0f172a">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Topo -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Fornecedores de Dropshipping" FontSize="20" FontWeight="Bold" Foreground="#f8fafc"/>
+                <TextBlock Text="Cadastre os fornecedores parceiros e seus endereços de postagem de origem." FontSize="12" Foreground="#94a3b8" Margin="0,2,0,0"/>
+            </StackPanel>
+            <Button Content="+ Novo Fornecedor" Background="#2563eb" Foreground="White" BorderThickness="0" Padding="14,6" FontWeight="Bold" HorizontalAlignment="Right" Click="BtnNovo_Click" Cursor="Hand"/>
+        </Grid>
+
+        <!-- Corpo Principal: Lista à esquerda e Formulário de Edição à direita -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="380"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Lista de Fornecedores -->
+            <Border Grid.Column="0" Background="#1e293b" CornerRadius="8" BorderBrush="#334155" BorderThickness="1" Padding="10">
+                <ListBox x:Name="ListFornecedores" Background="Transparent" BorderThickness="0" SelectionChanged="ListFornecedores_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#0f172a" CornerRadius="6" Padding="10" Margin="0,0,0,8" BorderBrush="#334155" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="#f8fafc" FontSize="13"/>
+                                    <TextBlock Text="{Binding EnderecoCompleto}" Foreground="#94a3b8" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                    <TextBlock Text="{Binding Telefone}" Foreground="#38bdf8" FontSize="11" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!-- Formulário de Cadastro/Edição -->
+            <Border Grid.Column="2" Background="#1e293b" CornerRadius="8" BorderBrush="#334155" BorderThickness="1" Padding="16">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock x:Name="TxtTituloForm" Text="Detalhes do Fornecedor" FontSize="15" FontWeight="Bold" Foreground="#f8fafc" Margin="0,0,0,12"/>
+
+                        <!-- Nome e Apelido -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Razão Social / Nome Completo: *" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtNome" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Apelido / Nome Fantasia:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtApelido" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- CNPJ e Contatos -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="CNPJ / CPF:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCnpj" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Telefone / WhatsApp:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtTelefone" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel>
+                            <TextBlock Text="E-mail de Contato:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                            <TextBox x:Name="TxtEmail" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                        </StackPanel>
+
+                        <!-- Endereço de Origem -->
+                        <Separator Background="#334155" Margin="0,4"/>
+                        <TextBlock Text="ENDEREÇO DE ORIGEM DA MERCADORIA" FontSize="11" FontWeight="Bold" Foreground="#38bdf8"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="CEP:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCep" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Logradouro (Rua / Av):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtLogradouro" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Número:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtNumero" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Complemento:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtComplemento" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Bairro:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtBairro" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="80"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Cidade:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCidade" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="UF:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtUf" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" MaxLength="2"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel>
+                            <TextBlock Text="Observações Internas:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                            <TextBox x:Name="TxtObservacoes" Height="50" AcceptsReturn="True" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                        </StackPanel>
+
+                        <!-- Ações do Formulário -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                            <Button x:Name="BtnExcluir" Content="Excluir" Background="#dc2626" Foreground="White" BorderThickness="0" Padding="14,6" FontWeight="SemiBold" Click="BtnExcluir_Click" Cursor="Hand" Visibility="Collapsed" Margin="0,0,8,0"/>
+                            <Button Content="Salvar Fornecedor" Background="#059669" Foreground="White" BorderThickness="0" Padding="18,6" FontWeight="Bold" Click="BtnSalvar_Click" Cursor="Hand"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

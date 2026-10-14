@@ -1,0 +1,80 @@
+<Window x:Class="ControleEnvios.Views.RastreioDetalhesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Histórico de Rastreamento Correios" Height="650" Width="750"
+        WindowStartupLocation="CenterOwner"
+        Background="#0f172a">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Topo com Dados do Pacote e Status -->
+        <Border Grid.Row="0" Background="#1e293b" CornerRadius="8" Padding="16" BorderBrush="#334155" BorderThickness="1" Margin="0,0,0,16">
+            <StackPanel>
+                <!-- Banner de Alerta: Tentativa de Entrega Não Atendida -->
+                <Border x:Name="BannerNaoAtendido" Background="#431407" BorderBrush="#f97316" BorderThickness="1.5" CornerRadius="8" Padding="12" Margin="0,0,0,14" Visibility="Collapsed">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtBannerNaoAtendidoTitulo" Text="⚠️ TENTATIVA DE ENTREGA 1/3 NÃO EFETUADA (CARTEIRO NÃO ATENDIDO)" FontWeight="Bold" Foreground="#fdba74" FontSize="12"/>
+                            <TextBlock Text="O carteiro esteve no local e não foi atendido. Avise o cliente para que haja alguém no endereço na próxima tentativa." Foreground="#fed7aa" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" x:Name="BtnCopiarWhatsApp" Content="📱 Copiar Aviso WhatsApp" Background="#ea580c" Foreground="White" BorderThickness="0" Padding="12,6" FontWeight="Bold" FontSize="11" Click="BtnCopiarWhatsApp_Click" Cursor="Hand" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="TxtCodigo" Text="AA123456789BR" FontSize="20" FontWeight="Bold" Foreground="#38bdf8" Margin="0,0,10,0"/>
+                            <Border x:Name="BadgeStatus" CornerRadius="12" Padding="10,2" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtStatus" Text="Em Trânsito" FontWeight="Bold" FontSize="11"/>
+                            </Border>
+                        </StackPanel>
+
+                        <TextBlock x:Name="TxtPedidoCliente" Text="Pedido #0000 • Cliente: Nome do Cliente" Foreground="#cbd5e1" FontSize="13" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="TxtOrigemDestino" Text="Origem: Estoque Próprio ➔ Destino: Vitória/ES" Foreground="#94a3b8" FontSize="11" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <!-- Botão Atualizar Agora -->
+                    <Button Grid.Column="1" x:Name="BtnAtualizarAgora" Content="Consultar Correios Agora" Background="#0284c7" Foreground="White" BorderThickness="0" Padding="14,8" FontWeight="Bold" VerticalAlignment="Center" Click="BtnAtualizarAgora_Click" Cursor="Hand"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Timeline de Eventos -->
+        <Border Grid.Row="1" Background="#1e293b" CornerRadius="8" Padding="16" BorderBrush="#334155" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="LINHA DO TEMPO DOS CORREIOS" FontSize="11" FontWeight="Bold" Foreground="#94a3b8" Margin="0,0,0,12"/>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="PanelTimeline">
+                        <!-- Itens da timeline injetados dinamicamente com margin própria -->
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Rodapé -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Fechar" Background="#334155" Foreground="#f8fafc" BorderThickness="0" Padding="20,8" FontWeight="SemiBold" Click="BtnFechar_Click" Cursor="Hand"/>
+        </StackPanel>
+    </Grid>
+</Window>

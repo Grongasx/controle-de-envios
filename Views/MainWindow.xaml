@@ -1,0 +1,488 @@
+<Window x:Class="ControleEnvios.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Controle de Envios - Correios API &amp; Tray" Height="800" Width="1300"
+        WindowStartupLocation="CenterScreen"
+        MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}"
+        MaxWidth="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Width}"
+        Loaded="Window_Loaded"
+        Background="#0f172a"
+        AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver">
+    
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header e Ações -->
+            <RowDefinition Height="Auto"/> <!-- Cards de Métricas -->
+            <RowDefinition Height="Auto"/> <!-- Barra de Filtros -->
+            <RowDefinition Height="*"/>    <!-- DataGrid de Envios -->
+            <RowDefinition Height="Auto"/> <!-- Barra de Status Inferior -->
+        </Grid.RowDefinitions>
+
+        <!-- 1. Topo: Título e Botões de Ação -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📦" FontSize="24" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="Controle de Envios Correios" FontSize="22" FontWeight="Bold" Foreground="#f8fafc" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Text="Rastreamento em Tempo Real • Gestão de Custos e Coletas • Dropshipping &amp; Estoque Próprio" FontSize="12" Foreground="#94a3b8" Margin="32,2,0,0"/>
+            </StackPanel>
+
+            <!-- Ações Principais (Botões de Importar PDF e Exportar Excel retirados conforme solicitado) -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="+ Novo Envio" Background="#2563eb" Foreground="White" BorderThickness="0" Padding="14,8" FontWeight="Bold" Click="BtnNovoEnvio_Click" Cursor="Hand" Margin="0,0,8,0"/>
+                <Button Content="📥 Coleta Correios (HTML)" Background="#0284c7" Foreground="White" BorderThickness="0" Padding="12,8" FontWeight="SemiBold" Click="BtnImportarHtmlColeta_Click" Cursor="Hand" Margin="0,0,8,0" ToolTip="Carregar comprovante HTML de coleta recebido por e-mail"/>
+                <Button Content="🏬 Fornecedores" Background="#334155" Foreground="#f8fafc" BorderThickness="0" Padding="12,8" FontWeight="SemiBold" Click="BtnFornecedores_Click" Cursor="Hand" Margin="0,0,8,0"/>
+                <Button x:Name="BtnAtualizarTodos" Content="🔄 Atualizar Rastreios" Background="#059669" Foreground="White" BorderThickness="0" Padding="12,8" FontWeight="Bold" Click="BtnAtualizarTodos_Click" Cursor="Hand" Margin="0,0,8,0"/>
+                <Button Content="⚙️ Configurações" Background="#1e293b" Foreground="#cbd5e1" BorderBrush="#334155" BorderThickness="1" Padding="12,8" FontWeight="SemiBold" Click="BtnConfiguracoes_Click" Cursor="Hand"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- 2. Cards de Métricas -->
+        <Grid Grid.Row="1" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Card Total -->
+            <Border Grid.Column="0" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="TOTAL DE ENVIOS" FontSize="10" FontWeight="Bold" Foreground="#94a3b8"/>
+                    <TextBlock x:Name="TxtCardTotal" Text="0" FontSize="18" FontWeight="Bold" Foreground="#f8fafc" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card Em Trânsito -->
+            <Border Grid.Column="2" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="EM TRÂNSITO" FontSize="10" FontWeight="Bold" Foreground="#60a5fa"/>
+                    <TextBlock x:Name="TxtCardEmTransito" Text="0" FontSize="18" FontWeight="Bold" Foreground="#60a5fa" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card Saiu p/ Entrega -->
+            <Border Grid.Column="4" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="SAIU P/ ENTREGA" FontSize="10" FontWeight="Bold" Foreground="#c084fc"/>
+                    <TextBlock x:Name="TxtCardSaiuEntrega" Text="0" FontSize="18" FontWeight="Bold" Foreground="#c084fc" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card Aguardando Retirada -->
+            <Border Grid.Column="6" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="AGUARDANDO RETIRADA" FontSize="10" FontWeight="Bold" Foreground="#fbbf24"/>
+                    <TextBlock x:Name="TxtCardRetirada" Text="0" FontSize="18" FontWeight="Bold" Foreground="#fbbf24" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card Entregues -->
+            <Border Grid.Column="8" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="ENTREGUES" FontSize="10" FontWeight="Bold" Foreground="#34d399"/>
+                    <TextBlock x:Name="TxtCardEntregues" Text="0" FontSize="18" FontWeight="Bold" Foreground="#34d399" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card Total Frete Loja (Calculado à parte) -->
+            <Border Grid.Column="10" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="TOTAL FRETE" FontSize="10" FontWeight="Bold" Foreground="#a78bfa" ToolTip="Total consolidado de frete pago pelos clientes / cobrado nos pedidos da loja"/>
+                    <TextBlock x:Name="TxtCardTotalFrete" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#a78bfa" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card Total Gasto Correios (Cobrado com base nos e-mails) -->
+            <Border Grid.Column="12" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="TOTAL CORREIOS" FontSize="10" FontWeight="Bold" Foreground="#38bdf8" ToolTip="Total consolidado cobrado pelos Correios (comprovantes e-mails de coleta)"/>
+                    <TextBlock x:Name="TxtCardGastoCorreios" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#38bdf8" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card Diferença de Valor (Diferença entre Frete Loja e Correios) -->
+            <Border Grid.Column="14" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="DIFERENÇA DE VALOR" FontSize="10" FontWeight="Bold" Foreground="#94a3b8" ToolTip="Diferença consolidada entre frete cobrado na loja e custo pago aos Correios"/>
+                    <TextBlock x:Name="TxtCardDiferencaValor" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#34d399" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 3. Barra de Busca e Filtros -->
+        <Border Grid.Row="2" Background="#1e293b" CornerRadius="8" Padding="12" BorderBrush="#334155" BorderThickness="1" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="230"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="220"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Busca Instantânea -->
+                <TextBox x:Name="TxtBusca" Grid.Column="0" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="8" FontSize="13" TextChanged="TxtBusca_TextChanged" ToolTip="Digite para filtrar por Pedido, Cliente, Rastreio ou Nota Fiscal"/>
+
+                <!-- Filtro Status -->
+                <ComboBox x:Name="CmbFiltroStatus" Grid.Column="2" SelectionChanged="CmbFiltros_SelectionChanged">
+                    <ComboBoxItem Content="Todos os Status (Ativos)" Tag="TODOS" IsSelected="True"/>
+                    <ComboBoxItem Content="⚠️ Tentativas s/ Sucesso (1/3, 2/3...)" Tag="NAO_ATENDIDO"/>
+                    <ComboBoxItem Content="⚠️ Cobrados s/ PDF da Tray" Tag="COBRADOS_SEM_PDF"/>
+                    <ComboBoxItem Content="Pendentes de Entrega" Tag="PENDENTES_ENTREGA"/>
+                    <ComboBoxItem Content="Em Trânsito" Tag="Em Trânsito"/>
+                    <ComboBoxItem Content="Saiu para Entrega" Tag="Saiu para Entrega"/>
+                    <ComboBoxItem Content="Aguardando Retirada" Tag="Aguardando Retirada"/>
+                    <ComboBoxItem Content="Entregues" Tag="ENTREGUES"/>
+                    <ComboBoxItem Content="Alerta / Retidos" Tag="Alerta / Retido"/>
+                    <ComboBoxItem Content="Pré-postagens" Tag="Pré-postagem"/>
+                    <ComboBoxItem Content="📦 Arquivados" Tag="ARQUIVADOS"/>
+                    <ComboBoxItem Content="Todos (Inclusive Arquivados)" Tag="TODOS_INCLUSIVE_ARQUIVADOS"/>
+                </ComboBox>
+
+                <!-- Filtro Origem -->
+                <ComboBox x:Name="CmbFiltroOrigem" Grid.Column="4" SelectionChanged="CmbFiltros_SelectionChanged">
+                    <ComboBoxItem Content="Todas as Origens" Tag="TODAS" IsSelected="True"/>
+                    <ComboBoxItem Content="Estoque Próprio" Tag="PROPRIO"/>
+                    <ComboBoxItem Content="Apenas Dropshipping" Tag="DROPSHIPPING"/>
+                </ComboBox>
+            </Grid>
+        </Border>
+
+        <!-- 4. Tabela Principal de Envios -->
+        <Border Grid.Row="3" Background="#1e293b" CornerRadius="8" BorderBrush="#334155" BorderThickness="1" ClipToBounds="True">
+            <DataGrid x:Name="GridEnvios" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                      EnableRowVirtualization="False" EnableColumnVirtualization="False"
+                      VirtualizingPanel.VirtualizationMode="Standard" VirtualizingPanel.ScrollUnit="Pixel"
+                      SnapsToDevicePixels="True" RenderOptions.ClearTypeHint="Enabled"
+                      Background="#1e293b" BorderThickness="0" RowBackground="#1e293b" AlternatingRowBackground="#0f172a"
+                      Foreground="#f8fafc" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#334155"
+                      SelectionMode="Single" SelectionUnit="FullRow" MouseDoubleClick="GridEnvios_MouseDoubleClick"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.CanContentScroll="True" ClipToBounds="True">
+                
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="SnapsToDevicePixels" Value="True"/>
+                        <Setter Property="MinHeight" Value="38"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                        <Setter Property="BorderBrush" Value="#334155"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#334155"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#1e3a8a"/>
+                                <Setter Property="Foreground" Value="#ffffff"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Padding" Value="8,4"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Background="Transparent" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                                        <ContentPresenter VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="#ffffff"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.CellStyle>
+
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#0f172a"/>
+                        <Setter Property="Foreground" Value="#94a3b8"/>
+                        <Setter Property="FontWeight" Value="Bold"/>
+                        <Setter Property="FontSize" Value="11"/>
+                        <Setter Property="Padding" Value="8,8"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                        <Setter Property="BorderBrush" Value="#334155"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+
+                <DataGrid.ContextMenu>
+                    <ContextMenu Background="#1e293b" Foreground="#f8fafc" BorderBrush="#334155">
+                        <MenuItem Header="📋 Copiar Código de Postagem" Click="MenuCopiarCodigo_Click" Foreground="#38bdf8" FontWeight="Bold"/>
+                        <MenuItem Header="📋 Copiar Pedido #" Click="MenuCopiarPedido_Click" Foreground="#f8fafc"/>
+                        <MenuItem Header="📱 Copiar Mensagem de Aviso ao Cliente" Click="MenuCopiarAvisoCliente_Click" Foreground="#f97316" FontWeight="SemiBold"/>
+                        <Separator Background="#334155"/>
+                        <MenuItem Header="📦 Ver Produtos do Pedido" Click="MenuVerProdutos_Click" Foreground="#f8fafc"/>
+                        <MenuItem Header="🏬 Ver Detalhes da Origem" Click="MenuVerOrigem_Click" Foreground="#f8fafc"/>
+                        <MenuItem Header="👤 Ver Detalhes do Cliente / Destinatário" Click="MenuVerCliente_Click" Foreground="#f8fafc"/>
+                        <MenuItem Header="📄 Abrir Nota Fiscal (PDF)" Click="MenuAbrirNotaFiscal_Click" Foreground="#38bdf8"/>
+                        <MenuItem Header="🔍 Ver Rastreio Detalhado" Click="MenuVerRastreio_Click" Foreground="#f8fafc"/>
+                        <MenuItem Header="📦 Alternar Arquivamento (Arquivar/Desarquivar)" Click="MenuAlternarArquivado_Click" Foreground="#f8fafc"/>
+                        <MenuItem Header="🔕 Alternar Desativação de Avisos" Click="MenuAlternarAvisos_Click" Foreground="#fb923c"/>
+                        <MenuItem Header="✏️ Editar Envio" Click="MenuEditar_Click" Foreground="#f8fafc"/>
+                        <Separator Background="#334155"/>
+                        <MenuItem Header="✕ Excluir Envio" Click="MenuExcluir_Click" Foreground="#f87171"/>
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
+
+                <DataGrid.Columns>
+                    <!-- Nº Pedido -->
+                    <DataGridTemplateColumn Header="PEDIDO #" Width="75">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnEditar_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0" Margin="0" ToolTip="Clique duas vezes ou selecione para abrir detalhes do pedido">
+                                    <TextBlock Text="{Binding NumeroPedido}" FontWeight="Bold" Foreground="#f8fafc" VerticalAlignment="Center"/>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Cliente (Clicável para ver detalhes completos de destinatário e entrega) -->
+                    <DataGridTemplateColumn Header="CLIENTE" Width="140">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnVerCliente_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" HorizontalContentAlignment="Left" Padding="0" Margin="0">
+                                    <Button.ToolTip>
+                                        <ToolTip Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="10">
+                                            <StackPanel>
+                                                <TextBlock Text="👤 DESTINATÁRIO / CLIENTE" FontWeight="Bold" Foreground="#38bdf8" FontSize="11" Margin="0,0,0,4"/>
+                                                <TextBlock Text="{Binding Cliente}" FontWeight="Bold" FontSize="13" Foreground="#f8fafc"/>
+                                                <TextBlock Text="{Binding ClienteCpf, StringFormat='CPF: {0}'}" FontSize="11" Foreground="#94a3b8" Margin="0,2,0,0"/>
+                                                <TextBlock Text="{Binding ClienteCelular, StringFormat='WhatsApp/Cel: {0}'}" FontSize="11" Foreground="#94a3b8"/>
+                                                <TextBlock Text="{Binding ClienteEmail, StringFormat='E-mail: {0}'}" FontSize="11" Foreground="#94a3b8"/>
+                                                <Separator Background="#334155" Margin="0,6,0,6"/>
+                                                <TextBlock Text="📍 ENDEREÇO DE ENTREGA:" FontWeight="Bold" Foreground="#cbd5e1" FontSize="10"/>
+                                                <TextBlock Text="{Binding EnderecoEntrega}" FontSize="11" Foreground="#f8fafc" TextWrapping="Wrap" MaxWidth="280"/>
+                                                <TextBlock Text="{Binding ComplementoEntrega, StringFormat='Compl: {0}'}" FontSize="11" Foreground="#94a3b8"/>
+                                                <TextBlock Text="{Binding CidadeDestino, StringFormat='Destino: {0}'}" FontSize="11" Foreground="#f8fafc"/>
+                                                <TextBlock Text="{Binding UfDestino, StringFormat='UF: {0}'}" FontSize="11" Foreground="#f8fafc"/>
+                                                <TextBlock Text="{Binding CepDestino, StringFormat='CEP: {0}'}" FontSize="11" Foreground="#f8fafc"/>
+                                                <TextBlock Text="Clique para ver os dados completos do pedido." FontSize="10" Foreground="#38bdf8" FontStyle="Italic" Margin="0,6,0,0"/>
+                                            </StackPanel>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                    <TextBlock Text="{Binding Cliente}" Foreground="#f8fafc" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Produtos (Clicável para abrir listagem de produtos do pedido) -->
+                    <DataGridTemplateColumn Header="PRODUTOS" Width="*" MinWidth="110">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnVerProdutos_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" HorizontalContentAlignment="Left" Padding="0" Margin="0" ToolTip="Clique para ver os produtos contidos no pedido">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Background="#451a03" BorderBrush="#f97316" BorderThickness="1" CornerRadius="4" Padding="5,2" Margin="0,0,6,0"
+                                                Visibility="{Binding CobradoSemPdfVisibility}" ToolTip="{Binding AvisoCobradoSemPdf}" VerticalAlignment="Center">
+                                            <TextBlock Text="⚠️ PDF PENDENTE" FontSize="9" FontWeight="Bold" Foreground="#fdba74"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding ResumoProdutos}" Foreground="#f8fafc" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Origem (Clicável para abrir detalhes do fornecedor ou da loja) -->
+                    <DataGridTemplateColumn Header="ORIGEM" Width="115">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnVerOrigem_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0" Margin="0" ToolTip="Clique para ver detalhes do fornecedor/origem">
+                                    <Border Background="#334155" CornerRadius="4" Padding="6,2" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding OrigemFormatada}" FontSize="11" Foreground="#f1f5f9" FontWeight="SemiBold"/>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Nota Fiscal (Clicável para abrir PDF nf {NumeroNota}.pdf) -->
+                    <DataGridTemplateColumn Header="NOTA FISCAL" Width="85">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnAbrirNotaFiscal_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0" Margin="0" ToolTip="Clique para abrir o PDF da Nota Fiscal">
+                                    <TextBlock Text="{Binding NotaFiscal}" Foreground="#38bdf8" FontWeight="SemiBold" TextDecorations="Underline" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding NotaFiscal}" Value="">
+                                                        <Setter Property="Text" Value="—"/>
+                                                        <Setter Property="Foreground" Value="#64748b"/>
+                                                        <Setter Property="TextDecorations" Value="{x:Null}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding NotaFiscal}" Value="{x:Null}">
+                                                        <Setter Property="Text" Value="—"/>
+                                                        <Setter Property="Foreground" Value="#64748b"/>
+                                                        <Setter Property="TextDecorations" Value="{x:Null}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Código de Rastreio / Postagem -->
+                    <DataGridTemplateColumn Header="RASTREIO / POSTAGEM" Width="150">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding CodigoRastreio}" Foreground="#38bdf8" FontWeight="Bold" Cursor="Hand" ToolTip="Clique duas vezes para abrir detalhes" VerticalAlignment="Center"/>
+                                    <Button Content="📋" ToolTip="Copiar código de postagem" Click="BtnCopiarCodigo_Click"
+                                            Background="#334155" Foreground="#f8fafc" BorderThickness="0"
+                                            Padding="4,1" Margin="5,0,0,0" FontSize="11" Cursor="Hand"
+                                            VerticalAlignment="Center">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding CodigoRastreio}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding CodigoRastreio}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Status Correios (Clicável para abrir histórico detalhado de rastreio) -->
+                    <DataGridTemplateColumn Header="STATUS CORREIOS" Width="145">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnVerStatus_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0" Margin="0" ToolTip="Clique para abrir o histórico detalhado dos Correios">
+                                    <Border CornerRadius="10" Padding="8,2" HorizontalAlignment="Left" Background="#0f172a" BorderBrush="#334155" BorderThickness="1"
+                                            ToolTip="{Binding DescricaoStatus}">
+                                        <TextBlock Text="{Binding StatusCorreiosBadgeTexto}" FontSize="11" FontWeight="Bold" Foreground="{Binding StatusCorreiosBadgeCor}"/>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Frete Loja (Clicável para ver detalhamento financeiro) -->
+                    <DataGridTemplateColumn Header="FRETE LOJA" Width="95">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnVerValoresFrete_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0" Margin="0">
+                                    <Button.ToolTip>
+                                        <ToolTip Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="10">
+                                            <StackPanel>
+                                                <TextBlock Text="🛒 FRETE COBRADO NA LOJA" FontWeight="Bold" Foreground="#a78bfa" FontSize="11" Margin="0,0,0,4"/>
+                                                <TextBlock Text="{Binding FormaEnvioLoja, StringFormat='Método: {0}'}" FontSize="11" Foreground="#cbd5e1"/>
+                                                <TextBlock Text="{Binding ValorFreteLoja, StringFormat='Frete Loja: {0:C2}'}" FontWeight="Bold" FontSize="12" Foreground="#f8fafc" Margin="0,2,0,0"/>
+                                                <TextBlock Text="{Binding ValorCorreios, StringFormat='Custo Correios: {0:C2}'}" FontSize="11" Foreground="#38bdf8"/>
+                                                <TextBlock Text="{Binding DiferencaValorFormatada, StringFormat='Diferença de Valor: {0}'}" FontWeight="Bold" FontSize="11" Foreground="{Binding DiferencaValorCor}"/>
+                                                <TextBlock Text="Clique para ver os detalhes completos." FontSize="10" Foreground="#38bdf8" FontStyle="Italic" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                    <TextBlock Text="{Binding ValorFreteLoja, StringFormat=C}" Foreground="#cbd5e1" VerticalAlignment="Center"/>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Custo Correios (Cobrado nos E-mails) -->
+                    <DataGridTemplateColumn Header="VALOR CORREIOS" Width="95">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnVerValoresFrete_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0" Margin="0">
+                                    <Button.ToolTip>
+                                        <ToolTip Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="10">
+                                            <StackPanel>
+                                                <TextBlock Text="📬 CUSTO COBRADO PELOS CORREIOS" FontWeight="Bold" Foreground="#38bdf8" FontSize="11" Margin="0,0,0,4"/>
+                                                <TextBlock Text="{Binding ValorCorreios, StringFormat='Cobrança Coleta: {0:C2}'}" FontWeight="Bold" FontSize="12" Foreground="#38bdf8"/>
+                                                <TextBlock Text="{Binding ValorFreteLoja, StringFormat='Frete Cobrado na Loja: {0:C2}'}" FontSize="11" Foreground="#cbd5e1"/>
+                                                <TextBlock Text="{Binding DiferencaValorFormatada, StringFormat='Diferença de Valor: {0}'}" FontWeight="Bold" FontSize="11" Foreground="{Binding DiferencaValorCor}"/>
+                                                <TextBlock Text="Clique para ver os detalhes completos." FontSize="10" Foreground="#38bdf8" FontStyle="Italic" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                    <TextBlock Text="{Binding ValorCorreios, StringFormat=C}" Foreground="#38bdf8" VerticalAlignment="Center"/>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Diferença de Valor (Frete Loja vs Correios) -->
+                    <DataGridTemplateColumn Header="DIFERENÇA DE VALOR" Width="125">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Click="BtnVerValoresFrete_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0" Margin="0">
+                                    <Button.ToolTip>
+                                        <ToolTip Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="10">
+                                            <StackPanel>
+                                                <TextBlock Text="⚖️ DIFERENÇA DE VALOR" FontWeight="Bold" Foreground="#38bdf8" FontSize="11" Margin="0,0,0,4"/>
+                                                <TextBlock Text="Cálculo: Frete Loja - Custo Correios" FontSize="11" Foreground="#94a3b8"/>
+                                                <TextBlock Text="{Binding ValorFreteLoja, StringFormat='Frete Loja: {0:C2}'}" FontSize="11" Foreground="#cbd5e1"/>
+                                                <TextBlock Text="{Binding ValorCorreios, StringFormat='Correios: {0:C2}'}" FontSize="11" Foreground="#38bdf8"/>
+                                                <Separator Background="#334155" Margin="0,4,0,4"/>
+                                                <TextBlock Text="{Binding DiferencaValorFormatada, StringFormat='Resultado: {0}'}" FontWeight="Bold" FontSize="12" Foreground="{Binding DiferencaValorCor}"/>
+                                                <TextBlock Text="Clique para ver os detalhes completos." FontSize="10" Foreground="#38bdf8" FontStyle="Italic" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                        </ToolTip>
+                                    </Button.ToolTip>
+                                    <Border CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" Background="#0f172a">
+                                        <TextBlock Text="{Binding DiferencaValorFormatada}" FontSize="11" FontWeight="Bold" Foreground="{Binding DiferencaValorCor}"/>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Ações -->
+                    <DataGridTemplateColumn Header="AÇÕES" Width="100">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Content="Editar" Background="#334155" Foreground="White" BorderThickness="0" Padding="8,2" FontSize="10" Click="BtnEditar_Click" Cursor="Hand" Margin="0,0,4,0" ToolTip="Editar dados do envio"/>
+                                    <Button Content="✕" Background="#dc2626" Foreground="White" BorderThickness="0" Padding="6,2" FontSize="10" Click="BtnExcluir_Click" Cursor="Hand" ToolTip="Excluir Envio"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- 5. Barra de Status Inferior -->
+        <Grid Grid.Row="4" Margin="0,8,0,0">
+            <TextBlock x:Name="TxtStatusInferior" Text="Pronto. Novo Envio disponível com extração automática de PDF da Tray." Foreground="#64748b" FontSize="12"/>
+            <TextBlock Text="Dica: As opções de Importar/Exportar Excel estão no botão '⚙️ Configurações'." Foreground="#64748b" FontSize="11" HorizontalAlignment="Right"/>
+        </Grid>
+    </Grid>
+</Window>

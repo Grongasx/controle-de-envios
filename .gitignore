@@ -1,0 +1,15 @@
+# Build .NET
+bin/
+obj/
+
+# Banco de dados local
+controle_envios.db
+*.db-journal
+
+# IDE / sistema
+.vs/
+.vscode/
+*.user
+__pycache__/
+*.pyc
+Thumbs.db
