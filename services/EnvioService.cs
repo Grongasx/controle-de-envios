@@ -92,6 +92,10 @@ namespace ControleEnvios.Services
                 {
                     query += " AND e.entregue = 0 AND (e.desativar_avisos IS NULL OR e.desativar_avisos = 0)";
                 }
+                else if (statusFiltro == "REVERSA")
+                {
+                    query += " AND (e.tipo_rastreio = 'REVERSA' OR (e.codigo_autorizacao_reversa IS NOT NULL AND e.codigo_autorizacao_reversa != ''))";
+                }
                 else
                 {
                     query += " AND e.status_correios = @st";
@@ -162,6 +166,9 @@ namespace ControleEnvios.Services
                     ProtocoloReclamacao = reader.IsDBNull(reader.GetOrdinal("protocolo_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("protocolo_reclamacao")),
                     DataReclamacao = reader.IsDBNull(reader.GetOrdinal("data_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("data_reclamacao")),
                     StatusReclamacao = reader.IsDBNull(reader.GetOrdinal("status_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("status_reclamacao")),
+                    CodigoAutorizacaoReversa = reader.IsDBNull(reader.GetOrdinal("codigo_autorizacao_reversa")) ? "" : reader.GetString(reader.GetOrdinal("codigo_autorizacao_reversa")),
+                    DataLimiteReversa = reader.IsDBNull(reader.GetOrdinal("data_limite_reversa")) ? "" : reader.GetString(reader.GetOrdinal("data_limite_reversa")),
+                    StatusReversa = reader.IsDBNull(reader.GetOrdinal("status_reversa")) ? "" : reader.GetString(reader.GetOrdinal("status_reversa")),
                     ResumoProdutos = reader.IsDBNull(reader.GetOrdinal("resumo_produtos")) ? "" : reader.GetString(reader.GetOrdinal("resumo_produtos")),
                     TentativasEntregaCount = reader.IsDBNull(reader.GetOrdinal("tentativas_nao_atendidas")) ? 0 : Convert.ToInt32(reader["tentativas_nao_atendidas"])
                 };
@@ -240,7 +247,10 @@ namespace ControleEnvios.Services
                         CaminhoPdf = reader.IsDBNull(reader.GetOrdinal("caminho_pdf")) ? "" : reader.GetString(reader.GetOrdinal("caminho_pdf")),
                         ProtocoloReclamacao = reader.IsDBNull(reader.GetOrdinal("protocolo_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("protocolo_reclamacao")),
                         DataReclamacao = reader.IsDBNull(reader.GetOrdinal("data_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("data_reclamacao")),
-                        StatusReclamacao = reader.IsDBNull(reader.GetOrdinal("status_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("status_reclamacao"))
+                        StatusReclamacao = reader.IsDBNull(reader.GetOrdinal("status_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("status_reclamacao")),
+                        CodigoAutorizacaoReversa = reader.IsDBNull(reader.GetOrdinal("codigo_autorizacao_reversa")) ? "" : reader.GetString(reader.GetOrdinal("codigo_autorizacao_reversa")),
+                        DataLimiteReversa = reader.IsDBNull(reader.GetOrdinal("data_limite_reversa")) ? "" : reader.GetString(reader.GetOrdinal("data_limite_reversa")),
+                        StatusReversa = reader.IsDBNull(reader.GetOrdinal("status_reversa")) ? "" : reader.GetString(reader.GetOrdinal("status_reversa"))
                     };
                 }
             }
@@ -333,7 +343,9 @@ namespace ControleEnvios.Services
                         origem_tipo = @origem, fornecedor_id = @fornid, nota_fiscal = @nf,
                         codigo_rastreio = @rast, tipo_rastreio = @trast, data_envio = @denv,
                         valor_correios = @vcor, observacoes = @obs, caminho_pdf = @cpdf,
-                        desativar_avisos = @desat, arquivado = @arq, updated_at = @upd
+                        desativar_avisos = @desat, arquivado = @arq,
+                        codigo_autorizacao_reversa = @reva, data_limite_reversa = @revlim, status_reversa = @revst,
+                        updated_at = @upd
                     WHERE id = @id";
 
                 cmd.Parameters.AddWithValue("@id", e.Id);
@@ -362,6 +374,9 @@ namespace ControleEnvios.Services
                 cmd.Parameters.AddWithValue("@cpdf", e.CaminhoPdf ?? "");
                 cmd.Parameters.AddWithValue("@desat", e.DesativarAvisos ? 1 : 0);
                 cmd.Parameters.AddWithValue("@arq", e.Arquivado ? 1 : 0);
+                cmd.Parameters.AddWithValue("@reva", e.CodigoAutorizacaoReversa ?? "");
+                cmd.Parameters.AddWithValue("@revlim", e.DataLimiteReversa ?? "");
+                cmd.Parameters.AddWithValue("@revst", e.StatusReversa ?? "");
                 cmd.Parameters.AddWithValue("@upd", agora);
                 cmd.ExecuteNonQuery();
 
@@ -384,13 +399,17 @@ namespace ControleEnvios.Services
                         endereco_entrega, complemento_entrega, cidade_destino, uf_destino, cep_destino, forma_envio_loja,
                         peso_gramas, valor_pedido, valor_frete_loja, origem_tipo, fornecedor_id,
                         nota_fiscal, codigo_rastreio, tipo_rastreio, data_envio, valor_correios,
-                        status_correios, observacoes, caminho_pdf, desativar_avisos, arquivado, created_at, updated_at
+                        status_correios, observacoes, caminho_pdf, desativar_avisos, arquivado,
+                        codigo_autorizacao_reversa, data_limite_reversa, status_reversa,
+                        created_at, updated_at
                     ) VALUES (
                         @ped, @cli, @cpf, @cel, @email,
                         @end, @comp, @cid, @uf, @cep, @forma,
                         @peso, @vped, @vfrete, @origem, @fornid,
                         @nf, @rast, @trast, @denv, @vcor,
-                        @st, @obs, @cpdf, @desat, @arq, @cre, @upd
+                        @st, @obs, @cpdf, @desat, @arq,
+                        @reva, @revlim, @revst,
+                        @cre, @upd
                     );
                     SELECT last_insert_rowid();";
 
@@ -415,11 +434,19 @@ namespace ControleEnvios.Services
                 cmd.Parameters.AddWithValue("@trast", e.TipoRastreio ?? "NORMAL");
                 cmd.Parameters.AddWithValue("@denv", e.DataEnvio ?? "");
                 cmd.Parameters.AddWithValue("@vcor", e.ValorCorreios);
-                cmd.Parameters.AddWithValue("@st", e.TipoRastreio == "PRE_POSTAGEM" ? "Pré-postagem" : "Pendente");
+
+                string statusPadrao = "Pendente";
+                if (e.TipoRastreio == "PRE_POSTAGEM") statusPadrao = "Pré-postagem";
+                else if (e.TipoRastreio == "REVERSA") statusPadrao = string.IsNullOrWhiteSpace(e.CodigoRastreio) ? "Aguardando Postagem (Reversa)" : "Em Trânsito (Reversa)";
+
+                cmd.Parameters.AddWithValue("@st", statusPadrao);
                 cmd.Parameters.AddWithValue("@obs", e.Observacoes ?? "");
                 cmd.Parameters.AddWithValue("@cpdf", e.CaminhoPdf ?? "");
                 cmd.Parameters.AddWithValue("@desat", e.DesativarAvisos ? 1 : 0);
                 cmd.Parameters.AddWithValue("@arq", e.Arquivado ? 1 : 0);
+                cmd.Parameters.AddWithValue("@reva", e.CodigoAutorizacaoReversa ?? "");
+                cmd.Parameters.AddWithValue("@revlim", e.DataLimiteReversa ?? "");
+                cmd.Parameters.AddWithValue("@revst", e.StatusReversa ?? "");
                 cmd.Parameters.AddWithValue("@cre", agora);
                 cmd.Parameters.AddWithValue("@upd", agora);
 
@@ -537,6 +564,28 @@ namespace ControleEnvios.Services
             return mudou;
         }
 
+        public static void VincularSroReversa(int envioId, string codigoSro, string status = "Postado / Em Trânsito", string dataAtualizacao = "", string detalhe = "")
+        {
+            using var conn = DatabaseContext.GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                UPDATE envios SET
+                    codigo_rastreio = @rast,
+                    status_correios = @st,
+                    descricao_status = @desc,
+                    status_reversa = 'Postado',
+                    ultimo_evento_data = CASE WHEN @dt != '' THEN @dt ELSE ultimo_evento_data END,
+                    updated_at = @upd
+                WHERE id = @id";
+            cmd.Parameters.AddWithValue("@id", envioId);
+            cmd.Parameters.AddWithValue("@rast", (codigoSro ?? "").Trim().ToUpperInvariant());
+            cmd.Parameters.AddWithValue("@st", status);
+            cmd.Parameters.AddWithValue("@desc", string.IsNullOrWhiteSpace(detalhe) ? "Objeto de devolução postado na agência dos Correios" : detalhe);
+            cmd.Parameters.AddWithValue("@dt", dataAtualizacao);
+            cmd.Parameters.AddWithValue("@upd", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            cmd.ExecuteNonQuery();
+        }
+
         public static void SalvarManifestacao(int envioId, string protocolo, string status, string data = "")
         {
             using var conn = DatabaseContext.GetConnection();
@@ -582,6 +631,9 @@ namespace ControleEnvios.Services
 
             cmd.CommandText = "SELECT COUNT(*) FROM envios WHERE tipo_rastreio = 'PRE_POSTAGEM' AND status_correios IN ('Pendente', 'Pré-postagem') AND (arquivado IS NULL OR arquivado = 0)";
             m.PrePostagem = Convert.ToInt32(cmd.ExecuteScalar());
+
+            cmd.CommandText = "SELECT COUNT(*) FROM envios WHERE (tipo_rastreio = 'REVERSA' OR (codigo_autorizacao_reversa IS NOT NULL AND codigo_autorizacao_reversa != '')) AND (arquivado IS NULL OR arquivado = 0)";
+            m.Reversas = Convert.ToInt32(cmd.ExecuteScalar());
 
             cmd.CommandText = "SELECT COUNT(*) FROM envios WHERE arquivado = 1";
             m.Arquivados = Convert.ToInt32(cmd.ExecuteScalar());

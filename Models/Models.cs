@@ -100,6 +100,52 @@ namespace ControleEnvios.Models
         public string DataReclamacao { get; set; } = string.Empty;
         public string StatusReclamacao { get; set; } = string.Empty;
         public bool TemReclamacaoAberta => !string.IsNullOrWhiteSpace(ProtocoloReclamacao);
+
+        // Campos dedicados para Logística Reversa / Devolução
+        public string CodigoAutorizacaoReversa { get; set; } = string.Empty;
+        public string DataLimiteReversa { get; set; } = string.Empty;
+        public string StatusReversa { get; set; } = string.Empty;
+
+        public bool IsReversa => (TipoRastreio ?? "").Equals("REVERSA", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(CodigoAutorizacaoReversa);
+        public bool IsAguardandoPostagemReversa => IsReversa && string.IsNullOrWhiteSpace(CodigoRastreio);
+        public bool IsPostadoReversa => IsReversa && !string.IsNullOrWhiteSpace(CodigoRastreio);
+
+        public bool ReversaPrestesAVencer
+        {
+            get
+            {
+                if (!IsReversa || !string.IsNullOrWhiteSpace(CodigoRastreio) || string.IsNullOrWhiteSpace(DataLimiteReversa))
+                    return false;
+
+                if (DateTime.TryParse(DataLimiteReversa, out var dtLimite) ||
+                    DateTime.TryParseExact(DataLimiteReversa, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out dtLimite))
+                {
+                    var diasRestantes = (dtLimite.Date - DateTime.Today).TotalDays;
+                    return diasRestantes >= 0 && diasRestantes <= 2;
+                }
+                return false;
+            }
+        }
+
+        public bool ReversaVencida
+        {
+            get
+            {
+                if (!IsReversa || !string.IsNullOrWhiteSpace(CodigoRastreio) || string.IsNullOrWhiteSpace(DataLimiteReversa))
+                    return false;
+
+                if (DateTime.TryParse(DataLimiteReversa, out var dtLimite) ||
+                    DateTime.TryParseExact(DataLimiteReversa, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out dtLimite))
+                {
+                    return dtLimite.Date < DateTime.Today;
+                }
+                return false;
+            }
+        }
+
+        public Visibility BadgeReversaVisibility => IsReversa ? Visibility.Visible : Visibility.Collapsed;
+        public string BadgeReversaTexto => IsReversa ? "🔄 REVERSA" : "";
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
@@ -324,6 +370,18 @@ namespace ControleEnvios.Models
         {
             get
             {
+                if (IsReversa)
+                {
+                    if (IsAguardandoPostagemReversa)
+                    {
+                        if (ReversaVencida) return "⚠️ Reversa Expirada (Não Postado)";
+                        if (ReversaPrestesAVencer) return "⚠️ Reversa Vencendo (Aguardando)";
+                        return "🔄 Reversa: Aguardando Postagem";
+                    }
+                    if (Entregue) return "🔄 Reversa: Devolvido / Entregue";
+                    return $"🔄 Reversa: {StatusCorreios}";
+                }
+
                 if (TemAlertaNaoAtendido) return $"⚠️ Não Atendido ({AlertaTentativaFormatada})";
                 if (TemDemoraExcessiva) return $"{StatusCorreios} • {DemoraBadgeTexto}";
                 return StatusCorreios;
@@ -334,6 +392,15 @@ namespace ControleEnvios.Models
         {
             get
             {
+                if (IsReversa)
+                {
+                    if (ReversaVencida) return "#ef4444";
+                    if (ReversaPrestesAVencer) return "#f59e0b";
+                    if (IsAguardandoPostagemReversa) return "#818cf8";
+                    if (Entregue) return "#34d399";
+                    return "#a855f7";
+                }
+
                 if (TemAlertaNaoAtendido) return "#f97316";
                 if (Entregue) return "#34d399";
                 if (TemDemoraExcessiva) return "#f43f5e"; // Vermelho suave de alerta de atraso
@@ -354,6 +421,16 @@ namespace ControleEnvios.Models
             (!string.IsNullOrWhiteSpace(CodigoRastreio) ? $" (Código: {CodigoRastreio})" : "") +
             $" e identificamos que ele está demorando mais do que o habitual pelos Correios ({MotivoDemora}).\n\n" +
             "Já estamos acompanhando a ocorrência junto aos Correios para que a entrega seja concluída o quanto antes. Qualquer novidade entraremos em contato imediatamente!";
+
+        public string InstrucoesReversaCliente =>
+            $"Olá {Cliente}! 🔄 Seguem as instruções e sua Autorização de Postagem Oficial dos Correios para a devolução do pedido #{NumeroPedido}:\n\n" +
+            $"🔢 Código de Autorização: {(string.IsNullOrWhiteSpace(CodigoAutorizacaoReversa) ? CodigoRastreio : CodigoAutorizacaoReversa)}\n" +
+            (!string.IsNullOrWhiteSpace(DataLimiteReversa) ? $"📅 Validade para Postagem: até {DataLimiteReversa}\n\n" : "\n") +
+            "📦 Como postar na agência:\n" +
+            "1. Embale o produto devidamente protegido (em caixa ou envelope pardo);\n" +
+            "2. Anexe a Nota Fiscal ou Declaração de Conteúdo do lado de fora da embalagem;\n" +
+            "3. Dirija-se a qualquer agência dos Correios e informe o Código de Autorização acima ao atendente.\n\n" +
+            "O envio já está 100% pago pela nossa loja! Assim que você postar, nosso sistema identificará o rastreamento automaticamente. Qualquer dúvida estamos à disposição! 😊";
 
         public string DadosReclamacaoCorreios =>
             $"DADOS PARA MANIFESTAÇÃO / RECLAMAÇÃO (PI) NOS CORREIOS:\n" +
@@ -378,6 +455,7 @@ namespace ControleEnvios.Models
         public int Alertas { get; set; }
         public int PrePostagem { get; set; }
         public int Arquivados { get; set; }
+        public int Reversas { get; set; }
         public decimal TotalFrete { get; set; }
         public decimal TotalGastoCorreios { get; set; }
         public decimal DiferencaValorTotal { get; set; }

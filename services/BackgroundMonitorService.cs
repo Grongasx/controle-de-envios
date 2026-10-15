@@ -129,6 +129,37 @@ namespace ControleEnvios.Services
                 }
             }
 
+            // 2. Consulta autorizações de Logística Reversa pendentes de postagem pelo cliente
+            var reversasPendentes = pendentes.Where(e => e.IsReversa && string.IsNullOrWhiteSpace(e.CodigoRastreio) && !string.IsNullOrWhiteSpace(e.CodigoAutorizacaoReversa)).ToList();
+            if (reversasPendentes.Count > 0)
+            {
+                LogProgresso?.Invoke($"Verificando {reversasPendentes.Count} autorização(ões) de logística reversa na API...");
+                foreach (var rev in reversasPendentes)
+                {
+                    if (!_isExecutando) break;
+                    try
+                    {
+                        var resRev = await CorreiosApiService.ConsultarAutorizacaoReversaAsync(rev.CodigoAutorizacaoReversa);
+                        if (resRev.Postado && !string.IsNullOrWhiteSpace(resRev.CodigoObjetoGerado))
+                        {
+                            EnvioService.VincularSroReversa(rev.Id, resRev.CodigoObjetoGerado, "Postado / Em Trânsito", resRev.DataPostagem?.ToString("dd/MM/yyyy HH:mm") ?? "", resRev.Detalhe);
+                            rev.CodigoRastreio = resRev.CodigoObjetoGerado;
+                            listaParaVerificar.Add(rev);
+
+                            NotificacaoCritica?.Invoke(
+                                "🔄 Devolução Postada pelo Cliente!",
+                                $"O cliente postou o pacote do pedido #{rev.NumeroPedido} ({rev.Cliente}).\nCódigo SRO gerado: {resRev.CodigoObjetoGerado}."
+                            );
+                            AtualizacaoConcluida?.Invoke();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogProgresso?.Invoke($"Erro ao consultar reversa #{rev.NumeroPedido}: {ex.Message}");
+                    }
+                }
+            }
+
             if (listaParaVerificar.Count == 0)
             {
                 LogProgresso?.Invoke("Nenhum envio pendente com código de rastreio para consultar.");

@@ -87,16 +87,24 @@ Aplicativo desktop para Windows (**C# .NET 8 / WPF**) que centraliza o controle 
   - **Diferença de Valor** entre frete cobrado e custo pago.
 - Busca instantânea por **pedido, cliente, código de rastreio ou nota fiscal**.
 - Filtros por status:
-  - Ativos · ⏱️ Demora Excessiva / Parados · Tentativas sem sucesso · Cobrados sem PDF da Tray · Pendentes de entrega
+  - Ativos · 🔄 Logística Reversa / Devoluções · ⏱️ Demora Excessiva / Parados · Tentativas sem sucesso · Cobrados sem PDF da Tray · Pendentes de entrega
   - Em Trânsito · Saiu para Entrega · Aguardando Retirada · Entregues · Alerta / Retidos
   - Pré-postagens · Arquivados · Todos (inclusive arquivados)
 - Filtro por origem: Todas · Estoque Próprio · Dropshipping.
 - Correção automática de inconsistências de status.
 
-## 7. ⚡ Ações Rápidas por Envio e Reclamação Oficial (PI)
+## 7. ⚡ Ações Rápidas por Envio, Logística Reversa e Reclamação Oficial (PI)
 
 Menu de contexto (botão direito) e colunas clicáveis na tabela:
 
+- 🔄 **Logística Reversa / Devoluções com Detecção Automática via API**:
+  - Aceita código de autorização reversa (e-ticket de 9 a 10 dígitos) sem travar a validação de SRO.
+  - O monitor em segundo plano e a tela de consulta verificam automaticamente a API de Logística Reversa dos Correios.
+  - **Auto-amarração**: Assim que o consumidor posta o pacote na agência dos Correios, a API retorna a etiqueta SRO definitiva (`<numero_etiqueta>`), preenche o rastreamento automaticamente e notifica na área de trabalho do Windows (`🔄 Devolução Postada!`).
+  - Alerta de validade: se faltarem 2 dias úteis para vencer a autorização sem postagem, exibe alerta visual de expiração.
+- 🔄 **Gerar Devolução / Reversa deste Pedido**: clona os dados do envio original com um clique para iniciar o processo de retorno.
+- 📱 **Copiar Instruções de Devolução (WhatsApp)**: texto pré-redigido humanizado com código de autorização, data limite de postagem e passo a passo de como embalar o produto.
+- 🔍 **Consultar Status da Reversa na API**: verificação instantânea se a autorização já foi postada na agência.
 - ⚡ **Abrir Reclamação Oficial Correios (PI via API)**:
   - Envio automático de manifestação direta pela API oficial dos Correios.
   - Gravação do número de protocolo oficial (`PI-...`) gerado no banco de dados.

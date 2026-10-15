@@ -155,6 +155,7 @@
                 <!-- Filtro Status -->
                 <ComboBox x:Name="CmbFiltroStatus" Grid.Column="2" SelectionChanged="CmbFiltros_SelectionChanged">
                     <ComboBoxItem Content="Todos os Status (Ativos)" Tag="TODOS" IsSelected="True"/>
+                    <ComboBoxItem Content="🔄 Logística Reversa / Devoluções" Tag="REVERSA"/>
                     <ComboBoxItem Content="⏱️ Demora Excessiva / Parados" Tag="DEMORA_EXCESSIVA"/>
                     <ComboBoxItem Content="⚠️ Tentativas s/ Sucesso (1/3, 2/3...)" Tag="NAO_ATENDIDO"/>
                     <ComboBoxItem Content="⚠️ Cobrados s/ PDF da Tray" Tag="COBRADOS_SEM_PDF"/>
@@ -251,6 +252,10 @@
                         <MenuItem Header="📱 Copiar Mensagem de Aviso ao Cliente (Não Atendido)" Click="MenuCopiarAvisoCliente_Click" Foreground="#f97316" FontWeight="SemiBold"/>
                         <MenuItem Header="⏱️ Copiar Mensagem de Atraso ao Cliente" Click="MenuCopiarAvisoAtraso_Click" Foreground="#f43f5e" FontWeight="SemiBold"/>
                         <MenuItem Header="📋 Copiar Dados p/ Reclamação Correios (PI)" Click="MenuCopiarReclamacaoCorreios_Click" Foreground="#94a3b8"/>
+                        <Separator Background="#334155"/>
+                        <MenuItem Header="🔄 Gerar Devolução / Reversa deste Pedido" Click="MenuGerarReversa_Click" Foreground="#c084fc" FontWeight="Bold"/>
+                        <MenuItem Header="📱 Copiar Instruções de Devolução (WhatsApp)" Click="MenuCopiarInstrucoesReversa_Click" Foreground="#a78bfa" FontWeight="SemiBold"/>
+                        <MenuItem Header="🔍 Consultar Status da Reversa na API Correios" Click="MenuConsultarReversaApi_Click" Foreground="#a78bfa"/>
                         <Separator Background="#334155"/>
                         <MenuItem Header="📦 Ver Produtos do Pedido" Click="MenuVerProdutos_Click" Foreground="#f8fafc"/>
                         <MenuItem Header="🏬 Ver Detalhes da Origem" Click="MenuVerOrigem_Click" Foreground="#f8fafc"/>
@@ -366,28 +371,34 @@
                     </DataGridTemplateColumn>
 
                     <!-- Código de Rastreio / Postagem -->
-                    <DataGridTemplateColumn Header="RASTREIO / POSTAGEM" Width="150">
+                    <DataGridTemplateColumn Header="RASTREIO / POSTAGEM" Width="165">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding CodigoRastreio}" Foreground="#38bdf8" FontWeight="Bold" Cursor="Hand" ToolTip="Clique duas vezes para abrir detalhes" VerticalAlignment="Center"/>
-                                    <Button Content="📋" ToolTip="Copiar código de postagem" Click="BtnCopiarCodigo_Click"
-                                            Background="#334155" Foreground="#f8fafc" BorderThickness="0"
-                                            Padding="4,1" Margin="5,0,0,0" FontSize="11" Cursor="Hand"
-                                            VerticalAlignment="Center">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
+                                    <Border Background="#312e81" BorderBrush="#818cf8" BorderThickness="1" CornerRadius="4" Padding="4,1" Margin="0,0,6,0"
+                                            Visibility="{Binding BadgeReversaVisibility}" VerticalAlignment="Center" ToolTip="Logística Reversa / Devolução">
+                                        <TextBlock Text="🔄 REVERSA" FontSize="9" FontWeight="Bold" Foreground="#c7d2fe"/>
+                                    </Border>
+                                    <TextBlock Text="{Binding CodigoRastreio}" Foreground="#38bdf8" FontWeight="Bold" Cursor="Hand" ToolTip="Clique duas vezes para abrir detalhes" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding CodigoRastreio}" Value="">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Setter Property="Text" Value="{Binding CodigoAutorizacaoReversa, StringFormat='e-Ticket {0}'}"/>
+                                                        <Setter Property="Foreground" Value="#a78bfa"/>
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding CodigoRastreio}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Setter Property="Text" Value="{Binding CodigoAutorizacaoReversa, StringFormat='e-Ticket {0}'}"/>
+                                                        <Setter Property="Foreground" Value="#a78bfa"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </Button.Style>
-                                    </Button>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <Button Content="📋" ToolTip="Copiar código de postagem" Click="BtnCopiarCodigo_Click"
+                                            Background="#334155" Foreground="#f8fafc" BorderThickness="0"
+                                            Padding="4,1" Margin="5,0,0,0" FontSize="11" Cursor="Hand"
+                                            VerticalAlignment="Center"/>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
