@@ -293,15 +293,16 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Código de Rastreio:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
-                                <TextBox x:Name="TxtCodigoRastreio" Background="#0f172a" Foreground="#38bdf8" BorderBrush="#334155" Padding="6" FontWeight="Bold"/>
+                                <TextBlock Text="Código de Rastreio (SRO):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCodigoRastreio" Background="#0f172a" Foreground="#38bdf8" BorderBrush="#334155" Padding="6" FontWeight="Bold" TextChanged="TxtCodigoRastreio_TextChanged"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="4">
                                 <TextBlock Text="Tipo de Rastreio:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
-                                <ComboBox x:Name="CmbTipoRastreio" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6">
+                                <ComboBox x:Name="CmbTipoRastreio" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" SelectionChanged="CmbTipoRastreio_SelectionChanged">
                                     <ComboBoxItem Content="Postagem Normal" IsSelected="True"/>
                                     <ComboBoxItem Content="Pré-postagem"/>
+                                    <ComboBoxItem Content="🔄 Logística Reversa"/>
                                 </ComboBox>
                             </StackPanel>
 
@@ -310,6 +311,40 @@
                                 <TextBox x:Name="TxtDataEnvio" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
                             </StackPanel>
                         </Grid>
+
+                        <!-- Painel Específico de Logística Reversa -->
+                        <Border x:Name="PainelReversa" Background="#1e1b4b" BorderBrush="#6366f1" BorderThickness="1.5" CornerRadius="8" Padding="12" Margin="0,0,0,12" Visibility="Collapsed">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="🔄" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="DADOS DA AUTORIZAÇÃO DE LOGÍSTICA REVERSA (CORREIOS)" FontSize="11" FontWeight="Bold" Foreground="#a5b4fc" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="1.5*"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Cód. Autorização de Postagem (e-Ticket):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="TxtCodigoAutorizacaoReversa" Background="#0f172a" Foreground="#38bdf8" BorderBrush="#4338ca" Padding="6" FontWeight="Bold" ToolTip="Código numérico de 9 a 10 dígitos gerado para o cliente postar nos Correios"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Validade p/ Postagem:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="TxtDataLimiteReversa" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#4338ca" Padding="6" ToolTip="Data limite para o cliente comparecer à agência (ex: 25/10/2026)"/>
+                                    </StackPanel>
+
+                                    <Button x:Name="BtnConsultarReversaApi" Grid.Column="4" Content="🔍 Consultar na API" Background="#4338ca" Foreground="White" BorderThickness="0" Padding="12,0" FontWeight="SemiBold" Height="32" VerticalAlignment="Bottom" Click="BtnConsultarReversaApi_Click" Cursor="Hand" ToolTip="Verifica se o cliente já compareceu à agência e postou a encomenda"/>
+                                </Grid>
+
+                                <TextBlock x:Name="TxtFeedbackReversa" Text="ℹ️ Assim que o cliente postar o pacote em qualquer agência, a API dos Correios identificará automaticamente e preencherá o código de rastreamento oficial (SRO)." Foreground="#94a3b8" FontSize="10" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
 
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>

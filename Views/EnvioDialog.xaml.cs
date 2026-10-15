@@ -111,10 +111,24 @@ namespace ControleEnvios.Views
             TxtObservacoes.Text = _envioEdicao.Observacoes;
             ChkDesativarAvisos.IsChecked = _envioEdicao.DesativarAvisos;
 
-            if (_envioEdicao.TipoRastreio == "PRE_POSTAGEM")
+            if (_envioEdicao.TipoRastreio == "REVERSA" || _envioEdicao.IsReversa)
+            {
+                CmbTipoRastreio.SelectedIndex = 2;
+                PainelReversa.Visibility = Visibility.Visible;
+            }
+            else if (_envioEdicao.TipoRastreio == "PRE_POSTAGEM")
+            {
                 CmbTipoRastreio.SelectedIndex = 1;
+                PainelReversa.Visibility = Visibility.Collapsed;
+            }
             else
+            {
                 CmbTipoRastreio.SelectedIndex = 0;
+                PainelReversa.Visibility = Visibility.Collapsed;
+            }
+
+            TxtCodigoAutorizacaoReversa.Text = _envioEdicao.CodigoAutorizacaoReversa;
+            TxtDataLimiteReversa.Text = _envioEdicao.DataLimiteReversa;
 
             if (_envioEdicao.OrigemTipo == "DROPSHIPPING")
             {
@@ -577,7 +591,16 @@ namespace ControleEnvios.Views
 
             envio.NotaFiscal = TxtNotaFiscal.Text.Trim();
             envio.CodigoRastreio = TxtCodigoRastreio.Text.Trim().ToUpperInvariant();
-            envio.TipoRastreio = CmbTipoRastreio.SelectedIndex == 1 ? "PRE_POSTAGEM" : "NORMAL";
+
+            if (CmbTipoRastreio.SelectedIndex == 2)
+                envio.TipoRastreio = "REVERSA";
+            else if (CmbTipoRastreio.SelectedIndex == 1)
+                envio.TipoRastreio = "PRE_POSTAGEM";
+            else
+                envio.TipoRastreio = "NORMAL";
+
+            envio.CodigoAutorizacaoReversa = TxtCodigoAutorizacaoReversa.Text.Trim();
+            envio.DataLimiteReversa = TxtDataLimiteReversa.Text.Trim();
             envio.DataEnvio = TxtDataEnvio.Text.Trim();
             envio.Observacoes = TxtObservacoes.Text.Trim();
             if (!string.IsNullOrWhiteSpace(_caminhoPdf))
@@ -592,6 +615,72 @@ namespace ControleEnvios.Views
             MessageBox.Show("Envio gravado com sucesso!", "Sucesso", MessageBoxButton.OK, MessageBoxImage.Information);
             DialogResult = true;
             Close();
+        }
+
+        private void CmbTipoRastreio_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (PainelReversa != null)
+            {
+                PainelReversa.Visibility = CmbTipoRastreio.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void TxtCodigoRastreio_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string texto = (TxtCodigoRastreio.Text ?? "").Trim();
+            // Se colar um código numérico de 8 a 11 dígitos no campo de rastreio, detecta reversa
+            if (System.Text.RegularExpressions.Regex.IsMatch(texto, @"^\d{8,11}$") && CmbTipoRastreio.SelectedIndex != 2)
+            {
+                CmbTipoRastreio.SelectedIndex = 2;
+                if (PainelReversa != null) PainelReversa.Visibility = Visibility.Visible;
+                TxtCodigoAutorizacaoReversa.Text = texto;
+                TxtCodigoRastreio.Text = "";
+                TxtFeedbackReversa.Text = $"💡 Código numérico ({texto}) identificado como Autorização de Logística Reversa!";
+            }
+        }
+
+        private async void BtnConsultarReversaApi_Click(object sender, RoutedEventArgs e)
+        {
+            string cod = TxtCodigoAutorizacaoReversa.Text.Trim();
+            if (string.IsNullOrWhiteSpace(cod))
+            {
+                MessageBox.Show("Informe o Código de Autorização de Postagem para consultar na API dos Correios.", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            BtnConsultarReversaApi.IsEnabled = false;
+            TxtFeedbackReversa.Text = "⏳ Conectando aos Correios para verificar status da autorização...";
+
+            try
+            {
+                var res = await CorreiosApiService.ConsultarAutorizacaoReversaAsync(cod);
+                if (res.Postado)
+                {
+                    if (!string.IsNullOrWhiteSpace(res.CodigoObjetoGerado))
+                    {
+                        TxtCodigoRastreio.Text = res.CodigoObjetoGerado;
+                    }
+                    TxtFeedbackReversa.Text = $"✅ O objeto já foi postado pelo cliente na agência dos Correios! " +
+                                              (!string.IsNullOrWhiteSpace(res.CodigoObjetoGerado) ? $"Código SRO: {res.CodigoObjetoGerado}." : "");
+                }
+                else
+                {
+                    TxtFeedbackReversa.Text = $"ℹ️ Status nos Correios: {res.Status}. {res.Detalhe}" +
+                                              (res.DataValidade.HasValue ? $" Validade até {res.DataValidade.Value:dd/MM/yyyy}." : "");
+                    if (res.DataValidade.HasValue && string.IsNullOrWhiteSpace(TxtDataLimiteReversa.Text))
+                    {
+                        TxtDataLimiteReversa.Text = res.DataValidade.Value.ToString("dd/MM/yyyy");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TxtFeedbackReversa.Text = $"⚠️ Erro ao consultar API: {ex.Message}";
+            }
+            finally
+            {
+                BtnConsultarReversaApi.IsEnabled = true;
+            }
         }
 
         private void BtnCancelar_Click(object sender, RoutedEventArgs e)

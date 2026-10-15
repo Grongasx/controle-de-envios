@@ -38,6 +38,19 @@ namespace ControleEnvios.Services
         public bool PodeReenviarManualmente => true;
     }
 
+    public class ResultadoConsultaReversa
+    {
+        public bool Sucesso { get; set; }
+        public bool Postado { get; set; }
+        public string CodigoAutorizacao { get; set; } = string.Empty;
+        public string CodigoObjetoGerado { get; set; } = string.Empty;
+        public string Status { get; set; } = "Pendente";
+        public string Detalhe { get; set; } = string.Empty;
+        public DateTime? DataPostagem { get; set; }
+        public DateTime? DataValidade { get; set; }
+        public string Erro { get; set; } = string.Empty;
+    }
+
     public static class CorreiosApiService
     {
         private static readonly HttpClient _httpClient = new HttpClient
@@ -162,6 +175,28 @@ namespace ControleEnvios.Services
             if (string.IsNullOrEmpty(codLimpo))
             {
                 return new ResultadoRastreio { Sucesso = false, Erro = "Código de rastreio vazio." };
+            }
+
+            // Se for código exclusivamente numérico (8 a 11 dígitos), é Autorização de Logística Reversa
+            if (Regex.IsMatch(codLimpo, @"^\d{8,11}$"))
+            {
+                var revRes = await ConsultarAutorizacaoReversaAsync(codLimpo);
+                if (revRes.Postado && !string.IsNullOrWhiteSpace(revRes.CodigoObjetoGerado))
+                {
+                    var sroRes = await RastrearObjetoAsync(revRes.CodigoObjetoGerado);
+                    sroRes.Descricao = $"[Logística Reversa] {sroRes.Descricao}";
+                    return sroRes;
+                }
+
+                return new ResultadoRastreio
+                {
+                    Sucesso = true,
+                    Codigo = codLimpo,
+                    Status = "Aguardando Postagem",
+                    Descricao = !string.IsNullOrWhiteSpace(revRes.Detalhe) ? revRes.Detalhe : "Autorização de Postagem Reversa ativa. Aguardando entrega pelo cliente em agência dos Correios.",
+                    Detalhe = revRes.DataValidade.HasValue ? $"Validade: {revRes.DataValidade.Value:dd/MM/yyyy}" : "",
+                    Entregue = false
+                };
             }
 
             try
@@ -535,6 +570,125 @@ namespace ControleEnvios.Services
                     MotivoRecusa = $"Falha de conexão com a API dos Correios: {ex.Message}",
                     DataPermitidaReenvio = DateTime.Today.AddDays(1),
                     Mensagem = ex.Message
+                };
+            }
+        }
+
+        public static async Task<ResultadoConsultaReversa> ConsultarAutorizacaoReversaAsync(string codigoAutorizacao)
+        {
+            string codLimpo = Regex.Replace(codigoAutorizacao ?? "", @"[^\d]", "").Trim();
+            if (string.IsNullOrWhiteSpace(codLimpo))
+            {
+                return new ResultadoConsultaReversa { Sucesso = false, Erro = "Código de autorização inválido ou vazio." };
+            }
+
+            try
+            {
+                string usuario = DatabaseContext.ObterConfig("correios_usuario", "").Trim();
+                string codigoAcesso = DatabaseContext.ObterConfig("correios_codigo_acesso", "").Trim();
+                string cartao = DatabaseContext.ObterConfig("correios_cartao_postagem", "").Trim();
+                string ambiente = DatabaseContext.ObterConfig("correios_ambiente", "PRODUCAO").Trim().ToUpperInvariant();
+
+                string codAdmin = !string.IsNullOrWhiteSpace(cartao) ? cartao : usuario;
+                if (string.IsNullOrWhiteSpace(codAdmin))
+                {
+                    codAdmin = "00000000";
+                }
+
+                string url = ambiente == "HOMOLOGACAO"
+                    ? "https://apphom.correios.com.br/logisticaReversaWS/logisticaReversaService/logisticaReversaWS"
+                    : "https://apps.correios.com.br/logisticaReversaWS/logisticaReversaService/logisticaReversaWS";
+
+                string soapEnvelope = $@"<?xml version=""1.0"" encoding=""utf-8""?>
+<soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:ser=""http://service.sro.correios.com.br/"">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <ser:acompanharPedido>
+            <codAdministrativo>{System.Security.SecurityElement.Escape(codAdmin)}</codAdministrativo>
+            <tipoBusca>H</tipoBusca>
+            <tipoSolicitacao>A</tipoSolicitacao>
+            <numeroPedido>{System.Security.SecurityElement.Escape(codLimpo)}</numeroPedido>
+        </ser:acompanharPedido>
+    </soapenv:Body>
+</soapenv:Envelope>";
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Content = new StringContent(soapEnvelope, Encoding.UTF8, "text/xml");
+                request.Headers.Add("SOAPAction", "");
+
+                if (!string.IsNullOrWhiteSpace(usuario) && !string.IsNullOrWhiteSpace(codigoAcesso))
+                {
+                    string rawAuth = $"{usuario}:{codigoAcesso}";
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(rawAuth)));
+                }
+
+                var response = await _httpClient.SendAsync(request);
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                var resultado = new ResultadoConsultaReversa
+                {
+                    Sucesso = response.IsSuccessStatusCode,
+                    CodigoAutorizacao = codLimpo
+                };
+
+                // Extrai número do objeto SRO gerado (<numero_etiqueta> ou <numero_objeto>)
+                var mEtiqueta = Regex.Match(responseBody, @"<(?:numero_etiqueta|numero_objeto|codigo_objeto|objeto)>([A-Z]{2}\d{9}[A-Z]{2})<\/(?:numero_etiqueta|numero_objeto|codigo_objeto|objeto)>", RegexOptions.IgnoreCase);
+                if (mEtiqueta.Success)
+                {
+                    resultado.Postado = true;
+                    resultado.CodigoObjetoGerado = mEtiqueta.Groups[1].Value.ToUpperInvariant();
+                    resultado.Status = "Postado";
+                    resultado.Detalhe = $"Objeto de logística reversa postado na agência dos Correios com código {resultado.CodigoObjetoGerado}.";
+                }
+                else
+                {
+                    // Verifica status da solicitação
+                    var mStatus = Regex.Match(responseBody, @"<(?:status_pedido|descricao_status|situacao)>([^<]+)<\/", RegexOptions.IgnoreCase);
+                    string st = mStatus.Success ? mStatus.Groups[1].Value.Trim() : "Pendente";
+
+                    resultado.Status = st;
+                    resultado.Postado = st.Contains("POSTAD", StringComparison.OrdinalIgnoreCase);
+
+                    if (resultado.Postado)
+                    {
+                        var mEt2 = Regex.Match(responseBody, @"\b([A-Z]{2}\d{9}[A-Z]{2})\b");
+                        if (mEt2.Success)
+                        {
+                            resultado.CodigoObjetoGerado = mEt2.Groups[1].Value.ToUpperInvariant();
+                        }
+                        resultado.Detalhe = "Objeto postado pelo cliente na agência dos Correios.";
+                    }
+                    else
+                    {
+                        resultado.Detalhe = "Autorização de postagem ativa. Aguardando entrega pelo cliente em agência dos Correios.";
+                    }
+                }
+
+                // Extrai prazo de validade se houver
+                var mValidade = Regex.Match(responseBody, @"<(?:prazo|data_limite|data_validade)>(\d{2}[\/\-]\d{2}[\/\-]\d{4})<\/", RegexOptions.IgnoreCase);
+                if (mValidade.Success && DateTime.TryParse(mValidade.Groups[1].Value.Replace('-', '/'), out var dtVal))
+                {
+                    resultado.DataValidade = dtVal;
+                }
+
+                // Extrai data de postagem se houver
+                var mDtPost = Regex.Match(responseBody, @"<(?:data_atualizacao|data_postagem)>(\d{2}[\/\-]\d{2}[\/\-]\d{4})<\/", RegexOptions.IgnoreCase);
+                if (mDtPost.Success && DateTime.TryParse(mDtPost.Groups[1].Value.Replace('-', '/'), out var dtPost))
+                {
+                    resultado.DataPostagem = dtPost;
+                }
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                return new ResultadoConsultaReversa
+                {
+                    Sucesso = false,
+                    CodigoAutorizacao = codLimpo,
+                    Status = "Pendente",
+                    Detalhe = "Aguardando postagem pelo cliente.",
+                    Erro = ex.Message
                 };
             }
         }

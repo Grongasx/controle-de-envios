@@ -202,6 +202,30 @@ namespace ControleEnvios.Data
             }
             catch { /* Coluna já existe */ }
 
+            try
+            {
+                using var cmdMig10 = conn.CreateCommand();
+                cmdMig10.CommandText = "ALTER TABLE envios ADD COLUMN codigo_autorizacao_reversa TEXT;";
+                cmdMig10.ExecuteNonQuery();
+            }
+            catch { /* Coluna já existe */ }
+
+            try
+            {
+                using var cmdMig11 = conn.CreateCommand();
+                cmdMig11.CommandText = "ALTER TABLE envios ADD COLUMN data_limite_reversa TEXT;";
+                cmdMig11.ExecuteNonQuery();
+            }
+            catch { /* Coluna já existe */ }
+
+            try
+            {
+                using var cmdMig12 = conn.CreateCommand();
+                cmdMig12.CommandText = "ALTER TABLE envios ADD COLUMN status_reversa TEXT;";
+                cmdMig12.ExecuteNonQuery();
+            }
+            catch { /* Coluna já existe */ }
+
             // Insere configurações padrão se não existirem
             InserirConfigPadrao(conn, "correios_usuario", "");
             InserirConfigPadrao(conn, "correios_codigo_acesso", "");

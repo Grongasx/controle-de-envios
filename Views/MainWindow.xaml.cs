@@ -503,16 +503,129 @@ namespace ControleEnvios.Views
             }
         }
 
-        private void CopiarCodigoPostagem(Envio env)
+        private void MenuGerarReversa_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(env.CodigoRastreio))
+            if (GridEnvios.SelectedItem is not Envio envOrig) return;
+
+            var novaReversa = new Envio
             {
-                TxtStatusInferior.Text = $"⚠️ O Pedido #{env.NumeroPedido} ({env.Cliente}) ainda não possui código de postagem/rastreio cadastrado.";
-                MessageBox.Show($"O pedido #{env.NumeroPedido} ainda não possui código de postagem cadastrado.", "Código de Postagem", MessageBoxButton.OK, MessageBoxImage.Information);
+                NumeroPedido = envOrig.NumeroPedido.EndsWith("-REV") ? envOrig.NumeroPedido : $"{envOrig.NumeroPedido}-REV",
+                Cliente = envOrig.Cliente,
+                ClienteCpf = envOrig.ClienteCpf,
+                ClienteCelular = envOrig.ClienteCelular,
+                ClienteEmail = envOrig.ClienteEmail,
+                EnderecoEntrega = envOrig.EnderecoEntrega,
+                ComplementoEntrega = envOrig.ComplementoEntrega,
+                CidadeDestino = envOrig.CidadeDestino,
+                UfDestino = envOrig.UfDestino,
+                CepDestino = envOrig.CepDestino,
+                FormaEnvioLoja = envOrig.FormaEnvioLoja,
+                OrigemTipo = envOrig.OrigemTipo,
+                FornecedorId = envOrig.FornecedorId,
+                NotaFiscal = envOrig.NotaFiscal,
+                TipoRastreio = "REVERSA",
+                Observacoes = $"Devolução referente ao Pedido original #{envOrig.NumeroPedido}.",
+                Itens = envOrig.Itens.Select(i => new ItemEnvio
+                {
+                    NomeProduto = i.NomeProduto,
+                    Referencia = i.Referencia,
+                    Codigo = i.Codigo,
+                    Tamanho = i.Tamanho,
+                    Quantidade = i.Quantidade,
+                    ValorUnitario = i.ValorUnitario,
+                    ValorTotal = i.ValorTotal
+                }).ToList()
+            };
+
+            // Salva o novo envio no banco como rascunho de reversa e abre para o usuário inserir o código de autorização
+            EnvioService.SalvarEnvio(novaReversa);
+            CarregarDados();
+
+            var dlg = new EnvioDialog(envioId: novaReversa.Id) { Owner = this };
+            if (dlg.ShowDialog() == true)
+            {
+                CarregarDados();
+                TxtStatusInferior.Text = $"🔄 Devolução/Reversa do pedido #{novaReversa.NumeroPedido} criada com sucesso!";
+            }
+        }
+
+        private void MenuCopiarInstrucoesReversa_Click(object sender, RoutedEventArgs e)
+        {
+            if (GridEnvios.SelectedItem is Envio env)
+            {
+                CopiarTextoParaClipboard(env.InstrucoesReversaCliente, $"Instruções de Postagem Reversa p/ {env.Cliente}");
+            }
+        }
+
+        private async void MenuConsultarReversaApi_Click(object sender, RoutedEventArgs e)
+        {
+            if (GridEnvios.SelectedItem is not Envio env) return;
+
+            string codAutorizacao = !string.IsNullOrWhiteSpace(env.CodigoAutorizacaoReversa) 
+                ? env.CodigoAutorizacaoReversa 
+                : env.CodigoRastreio;
+
+            if (string.IsNullOrWhiteSpace(codAutorizacao))
+            {
+                MessageBox.Show("Este envio não possui código de autorização reversa cadastrado.", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            CopiarTextoParaClipboard(env.CodigoRastreio, $"Código de Postagem {env.CodigoRastreio}");
+            TxtStatusInferior.Text = $"Consultando autorização reversa {codAutorizacao} na API dos Correios...";
+            TxtStatusInferior.Foreground = new SolidColorBrush((Color)System.Windows.Media.ColorConverter.ConvertFromString("#38bdf8"));
+
+            try
+            {
+                var res = await CorreiosApiService.ConsultarAutorizacaoReversaAsync(codAutorizacao);
+                if (res.Postado)
+                {
+                    if (!string.IsNullOrWhiteSpace(res.CodigoObjetoGerado))
+                    {
+                        EnvioService.VincularSroReversa(env.Id, res.CodigoObjetoGerado, "Postado / Em Trânsito", res.DataPostagem?.ToString("dd/MM/yyyy HH:mm") ?? "", res.Detalhe);
+                        CarregarDados();
+                        MessageBox.Show($"✅ O cliente já postou a encomenda na agência dos Correios!\n\n" +
+                                        $"• Código SRO gerado: {res.CodigoObjetoGerado}\n" +
+                                        $"• Data de Postagem: {(res.DataPostagem.HasValue ? res.DataPostagem.Value.ToString("dd/MM/yyyy HH:mm") : "Confirmada")}\n\n" +
+                                        $"O código foi vinculado ao pedido e o rastreamento em tempo real já está ativo.",
+                                        "Devolução Postada", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Objeto marcado como postado na agência dos Correios.", "Status Reversa", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+                else
+                {
+                    string infoValidade = res.DataValidade.HasValue ? $"\n• Validade da autorização: até {res.DataValidade.Value:dd/MM/yyyy}" : "";
+                    MessageBox.Show($"ℹ️ Status da Autorização: {res.Status}\n\n" +
+                                    $"• Detalhe: {res.Detalhe}" +
+                                    infoValidade +
+                                    "\n\nO cliente ainda não compareceu à agência dos Correios para entregar o pacote.",
+                                    "Aguardando Postagem", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erro ao consultar autorização na API dos Correios: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CopiarCodigoPostagem(Envio env)
+        {
+            if (!string.IsNullOrWhiteSpace(env.CodigoRastreio))
+            {
+                CopiarTextoParaClipboard(env.CodigoRastreio, $"Código de Postagem {env.CodigoRastreio}");
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(env.CodigoAutorizacaoReversa))
+            {
+                CopiarTextoParaClipboard(env.CodigoAutorizacaoReversa, $"Código de Autorização Reversa {env.CodigoAutorizacaoReversa}");
+                return;
+            }
+
+            TxtStatusInferior.Text = $"⚠️ O Pedido #{env.NumeroPedido} ({env.Cliente}) ainda não possui código de postagem/rastreio cadastrado.";
+            MessageBox.Show($"O pedido #{env.NumeroPedido} ainda não possui código de postagem cadastrado.", "Código de Postagem", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void CopiarTextoParaClipboard(string texto, string descricao)
