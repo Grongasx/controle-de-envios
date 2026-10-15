@@ -98,3 +98,20 @@ Controle Envios/
 ├── iniciar.bat                  # Script de início rápido
 └── publicar_exe.bat             # Script para recompilar o executável
 ```
+
+---
+
+## 🚀 CI/CD & Publicação Automática (GitHub Actions)
+
+O projeto conta com um fluxo de CI/CD automatizado no GitHub Actions ([.github/workflows/publish.yml](.github/workflows/publish.yml)):
+
+* **Publicação Automática por Tag:**
+  Sempre que uma tag de versão for enviada (ex.: `v1.2.5`), o GitHub Actions compila o projeto no ambiente Windows e cria uma **GitHub Release** com os seguintes arquivos anexados:
+  * `ControleEnvios.exe` — Executável padrão (win-x64, ~25MB, requer .NET 8 Desktop Runtime).
+  * `ControleEnvios-SelfContained.exe` — Executável autônomo (não necessita de .NET instalado no PC).
+  * `ControleEnvios-win-x64.zip` e `ControleEnvios-SelfContained-win-x64.zip` — Pacotes compactados para download direto.
+* **Validação Contínua:**
+  Todo `push` ou `pull request` para a branch `main` executa a compilação completa para garantir que o código sempre permaneça íntegro.
+* **Disparo Manual:**
+  O workflow também pode ser disparado sob demanda pela aba *Actions* do GitHub com opção de gerar releases avulsas.
+

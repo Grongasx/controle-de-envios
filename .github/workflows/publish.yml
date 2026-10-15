@@ -1,0 +1,86 @@
+name: Build & Publish Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Criar GitHub Release mesmo sem tag?'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Publish (.NET 8 WPF)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore ControleEnvios.csproj
+
+      - name: Build project (Release)
+        run: dotnet build ControleEnvios.csproj -c Release --no-restore
+
+      - name: Publish Framework-dependent Executable
+        run: |
+          dotnet publish ControleEnvios.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o ./publish-fd
+
+      - name: Publish Self-Contained Executable
+        run: |
+          dotnet publish ControleEnvios.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish-sc
+
+      - name: Prepare Release Artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ./release-assets
+          
+          # Copia executável padrão (depende do .NET 8 instalado)
+          Copy-Item ./publish-fd/ControleEnvios.exe ./release-assets/ControleEnvios.exe
+          
+          # Copia executável autônomo (funciona direto em qualquer PC, mesmo sem .NET instalado)
+          Copy-Item ./publish-sc/ControleEnvios.exe ./release-assets/ControleEnvios-SelfContained.exe
+
+          # Cria arquivos compactados .ZIP
+          Compress-Archive -Path ./publish-fd/* -DestinationPath ./release-assets/ControleEnvios-win-x64.zip -Force
+          Compress-Archive -Path ./publish-sc/* -DestinationPath ./release-assets/ControleEnvios-SelfContained-win-x64.zip -Force
+
+      - name: Upload Build Artifacts (Actions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ControleEnvios-Windows-x64
+          path: ./release-assets/*
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./release-assets/ControleEnvios.exe
+            ./release-assets/ControleEnvios-SelfContained.exe
+            ./release-assets/ControleEnvios-win-x64.zip
+            ./release-assets/ControleEnvios-SelfContained-win-x64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
