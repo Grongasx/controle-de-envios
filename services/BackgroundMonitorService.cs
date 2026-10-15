@@ -14,6 +14,8 @@ namespace ControleEnvios.Services
 
         private CancellationTokenSource? _cts;
         private bool _isExecutando = false;
+        private readonly HashSet<string> _notificadosDemoraHoje = new();
+        private DateTime _dataUltimoResetDemora = DateTime.Today;
 
         public event Action<string, string>? NotificacaoCritica; // Titulo, Mensagem
         public event Action? AtualizacaoConcluida;
@@ -199,6 +201,31 @@ namespace ControleEnvios.Services
             try
             {
                 EnvioService.VerificarEArquivarEntregues7Dias();
+            }
+            catch { }
+
+            // Checagem de Demora Excessiva / Parados nos Correios (notifica 1x por dia por encomenda)
+            try
+            {
+                if (DateTime.Today != _dataUltimoResetDemora)
+                {
+                    _notificadosDemoraHoje.Clear();
+                    _dataUltimoResetDemora = DateTime.Today;
+                }
+
+                var atrasados = EnvioService.ListarEnvios(statusFiltro: "DEMORA_EXCESSIVA");
+                foreach (var atr in atrasados)
+                {
+                    string chave = $"{atr.Id}_{DateTime.Today:yyyyMMdd}";
+                    if (!_notificadosDemoraHoje.Contains(chave))
+                    {
+                        _notificadosDemoraHoje.Add(chave);
+                        NotificacaoCritica?.Invoke(
+                            $"⏱️ Alerta de Demora nos Correios (Pedido #{atr.NumeroPedido})",
+                            $"Encomenda de {atr.Cliente} ({atr.CodigoRastreio}): {atr.MotivoDemora}."
+                        );
+                    }
+                }
             }
             catch { }
 

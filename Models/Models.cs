@@ -96,6 +96,10 @@ namespace ControleEnvios.Models
         public bool Arquivado { get; set; }
         public string DataEntrega { get; set; } = string.Empty;
         public string DataArquivamento { get; set; } = string.Empty;
+        public string ProtocoloReclamacao { get; set; } = string.Empty;
+        public string DataReclamacao { get; set; } = string.Empty;
+        public string StatusReclamacao { get; set; } = string.Empty;
+        public bool TemReclamacaoAberta => !string.IsNullOrWhiteSpace(ProtocoloReclamacao);
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
@@ -184,7 +188,147 @@ namespace ControleEnvios.Models
 
         public string AlertaTentativaFormatada => TentativasEntregaCount > 0 ? $"{TentativasEntregaCount}/3" : "";
 
-        public string StatusCorreiosBadgeTexto => TemAlertaNaoAtendido ? $"⚠️ Não Atendido ({AlertaTentativaFormatada})" : StatusCorreios;
+        // Formatação inteligente de CPF ou CNPJ
+        public string ClienteDocumentoFormatado
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(ClienteCpf)) return "—";
+                string limpo = System.Text.RegularExpressions.Regex.Replace(ClienteCpf, @"[^\d]", "").Trim();
+                if (limpo.Length == 11)
+                    return $"{limpo.Substring(0, 3)}.{limpo.Substring(3, 3)}.{limpo.Substring(6, 3)}-{limpo.Substring(9, 2)}";
+                if (limpo.Length == 14)
+                    return $"{limpo.Substring(0, 2)}.{limpo.Substring(2, 3)}.{limpo.Substring(5, 3)}/{limpo.Substring(8, 4)}-{limpo.Substring(12, 2)}";
+                return ClienteCpf;
+            }
+        }
+
+        // ==========================================
+        // CÁLCULO DE DIAS ÚTEIS E DEMORA EXCESSIVA
+        // ==========================================
+
+        public static int CalcularDiasUteis(DateTime inicio, DateTime fim)
+        {
+            if (inicio > fim) return 0;
+            int dias = 0;
+            DateTime atual = inicio.Date.AddDays(1);
+            while (atual <= fim.Date)
+            {
+                if (atual.DayOfWeek != DayOfWeek.Saturday && atual.DayOfWeek != DayOfWeek.Sunday)
+                {
+                    dias++;
+                }
+                atual = atual.AddDays(1);
+            }
+            return dias;
+        }
+
+        private static DateTime? ParseDataFlexivel(string? dataStr)
+        {
+            if (string.IsNullOrWhiteSpace(dataStr)) return null;
+            string[] formatos = {
+                "dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "dd/MM/yyyy",
+                "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd",
+                "dd-MM-yyyy HH:mm:ss", "dd-MM-yyyy"
+            };
+            if (DateTime.TryParseExact(dataStr.Trim(), formatos, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
+                return dt;
+            if (DateTime.TryParse(dataStr.Trim(), out var dt2))
+                return dt2;
+            return null;
+        }
+
+        public int DiasSemMovimentacao
+        {
+            get
+            {
+                if (Entregue) return 0;
+                var dtUltimo = ParseDataFlexivel(UltimoEventoData) ?? ParseDataFlexivel(DataEnvio) ?? CreatedAt;
+                return CalcularDiasUteis(dtUltimo, DateTime.Now);
+            }
+        }
+
+        public int DiasEmTransito
+        {
+            get
+            {
+                var dtInicio = ParseDataFlexivel(DataEnvio) ?? CreatedAt;
+                var dtFim = Entregue ? (ParseDataFlexivel(DataEntrega) ?? DateTime.Now) : DateTime.Now;
+                return CalcularDiasUteis(dtInicio, dtFim);
+            }
+        }
+
+        public bool TemDemoraExcessiva
+        {
+            get
+            {
+                if (DesativarAvisos || Entregue || Arquivado) return false;
+
+                // 1. Pré-postagem que não foi postada fisicamente após 3 dias úteis
+                if (TipoRastreio == "PRE_POSTAGEM" && (StatusCorreios == "Pendente" || StatusCorreios == "Pré-postagem"))
+                {
+                    return DiasEmTransito >= 3;
+                }
+
+                // Se não tem código de rastreio ou nunca foi postado, não mede demora dos Correios
+                if (string.IsNullOrWhiteSpace(CodigoRastreio)) return false;
+
+                // 2. Parado sem nenhuma movimentação dos Correios há mais de 5 dias úteis (risco de extravio/retenção)
+                if (DiasSemMovimentacao >= 5) return true;
+
+                // 3. Trânsito excessivo por modalidade
+                string modalidade = (FormaEnvioLoja ?? "").ToUpperInvariant();
+                if (modalidade.Contains("SEDEX") && DiasEmTransito >= 5) return true;
+                if (modalidade.Contains("PAC") && DiasEmTransito >= 10) return true;
+                if (!modalidade.Contains("SEDEX") && !modalidade.Contains("PAC") && DiasEmTransito >= 8) return true;
+
+                return false;
+            }
+        }
+
+        public string MotivoDemora
+        {
+            get
+            {
+                if (!TemDemoraExcessiva) return string.Empty;
+
+                if (TipoRastreio == "PRE_POSTAGEM" && (StatusCorreios == "Pendente" || StatusCorreios == "Pré-postagem"))
+                    return $"Pré-postagem aguardando envio há {DiasEmTransito} dias úteis";
+
+                if (DiasSemMovimentacao >= 5)
+                    return $"Parado nos Correios há {DiasSemMovimentacao} dias úteis sem movimentação";
+
+                string modalidade = (FormaEnvioLoja ?? "").ToUpperInvariant();
+                if (modalidade.Contains("SEDEX"))
+                    return $"SEDEX em trânsito há {DiasEmTransito} dias úteis (limite padrão: 5d)";
+                if (modalidade.Contains("PAC"))
+                    return $"PAC em trânsito há {DiasEmTransito} dias úteis (limite padrão: 10d)";
+
+                return $"Encomenda em trânsito há {DiasEmTransito} dias úteis";
+            }
+        }
+
+        public Visibility DemoraBadgeVisibility => TemDemoraExcessiva ? Visibility.Visible : Visibility.Collapsed;
+
+        public string DemoraBadgeTexto
+        {
+            get
+            {
+                if (!TemDemoraExcessiva) return "";
+                if (DiasSemMovimentacao >= 5) return $"⏱️ Parado ({DiasSemMovimentacao}d úteis)";
+                return $"⏱️ Demora ({DiasEmTransito}d úteis)";
+            }
+        }
+
+        public string StatusCorreiosBadgeTexto
+        {
+            get
+            {
+                if (TemAlertaNaoAtendido) return $"⚠️ Não Atendido ({AlertaTentativaFormatada})";
+                if (TemDemoraExcessiva) return $"{StatusCorreios} • {DemoraBadgeTexto}";
+                return StatusCorreios;
+            }
+        }
 
         public string StatusCorreiosBadgeCor
         {
@@ -192,6 +336,7 @@ namespace ControleEnvios.Models
             {
                 if (TemAlertaNaoAtendido) return "#f97316";
                 if (Entregue) return "#34d399";
+                if (TemDemoraExcessiva) return "#f43f5e"; // Vermelho suave de alerta de atraso
                 if (StatusCorreios == "Saiu para Entrega") return "#c084fc";
                 if (StatusCorreios == "Aguardando Retirada") return "#fbbf24";
                 if (StatusCorreios == "Alerta / Retido") return "#ef4444";
@@ -203,6 +348,24 @@ namespace ControleEnvios.Models
             $"Olá {Cliente}! 📦 Informamos que os Correios realizaram a {TentativasEntregaCount}ª tentativa de entrega do seu pedido #{NumeroPedido}" +
             (!string.IsNullOrWhiteSpace(CodigoRastreio) ? $" (Rastreio: {CodigoRastreio})" : "") +
             ", porém o carteiro não foi atendido no local. Haverá uma nova tentativa nos próximos dias úteis. Por favor, certifique-se de que haverá alguém no endereço para receber!";
+
+        public string AvisoAtrasoCliente =>
+            $"Olá {Cliente}! 📦 Acompanhamos o envio do seu pedido #{NumeroPedido}" +
+            (!string.IsNullOrWhiteSpace(CodigoRastreio) ? $" (Código: {CodigoRastreio})" : "") +
+            $" e identificamos que ele está demorando mais do que o habitual pelos Correios ({MotivoDemora}).\n\n" +
+            "Já estamos acompanhando a ocorrência junto aos Correios para que a entrega seja concluída o quanto antes. Qualquer novidade entraremos em contato imediatamente!";
+
+        public string DadosReclamacaoCorreios =>
+            $"DADOS PARA MANIFESTAÇÃO / RECLAMAÇÃO (PI) NOS CORREIOS:\n" +
+            $"• Código de Rastreio: {CodigoRastreio}\n" +
+            $"• Pedido da Loja: #{NumeroPedido}\n" +
+            $"• Destinatário: {Cliente}\n" +
+            $"• Documento: {ClienteDocumentoFormatado}\n" +
+            $"• Destino: {EnderecoEntrega}, {CidadeDestino}/{UfDestino} - CEP {CepDestino}\n" +
+            $"• Data de Postagem: {(string.IsNullOrWhiteSpace(DataEnvio) ? CreatedAt.ToString("dd/MM/yyyy") : DataEnvio)}\n" +
+            $"• Último Evento: {UltimoEventoData} - {UltimoEventoLocal} ({DescricaoStatus})\n" +
+            $"• Diagnóstico: {MotivoDemora}\n" +
+            $"• Modalidade: {FormaEnvioLoja}";
     }
 
     public class Metricas
@@ -220,5 +383,6 @@ namespace ControleEnvios.Models
         public decimal DiferencaValorTotal { get; set; }
         public decimal SaldoFreteTotal { get => DiferencaValorTotal; set => DiferencaValorTotal = value; }
         public int TentativasNaoAtendidas { get; set; }
+        public int DemoraExcessiva { get; set; }
     }
 }

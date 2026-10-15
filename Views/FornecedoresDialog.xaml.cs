@@ -122,5 +122,144 @@ namespace ControleEnvios.Views
                 CarregarLista();
             }
         }
+
+        private bool _isFormattingCnpj = false;
+        private void TxtCnpj_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isFormattingCnpj) return;
+            string raw = TxtCnpj.Text;
+            string dig = System.Text.RegularExpressions.Regex.Replace(raw ?? "", @"[^\d]", "");
+            if (dig.Length > 14) dig = dig.Substring(0, 14);
+
+            string formatado;
+            if (dig.Length <= 11)
+            {
+                if (dig.Length <= 3) formatado = dig;
+                else if (dig.Length <= 6) formatado = $"{dig.Substring(0, 3)}.{dig.Substring(3)}";
+                else if (dig.Length <= 9) formatado = $"{dig.Substring(0, 3)}.{dig.Substring(3, 3)}.{dig.Substring(6)}";
+                else formatado = $"{dig.Substring(0, 3)}.{dig.Substring(3, 3)}.{dig.Substring(6, 3)}-{dig.Substring(9)}";
+            }
+            else
+            {
+                if (dig.Length <= 12) formatado = $"{dig.Substring(0, 2)}.{dig.Substring(2, 3)}.{dig.Substring(5, 3)}/{dig.Substring(8)}";
+                else formatado = $"{dig.Substring(0, 2)}.{dig.Substring(2, 3)}.{dig.Substring(5, 3)}/{dig.Substring(8, 4)}-{dig.Substring(12)}";
+            }
+
+            if (formatado != raw)
+            {
+                _isFormattingCnpj = true;
+                TxtCnpj.Text = formatado;
+                TxtCnpj.CaretIndex = formatado.Length;
+                _isFormattingCnpj = false;
+            }
+        }
+
+        private bool _isConsultandoCep = false;
+        private string _ultimoCepConsultado = "";
+
+        private async void TxtCep_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string limpo = CepService.LimparCep(TxtCep.Text);
+            if (limpo.Length == 8 && limpo != _ultimoCepConsultado)
+            {
+                await ExecutarBuscaCepAsync(sobrescreverTudo: false);
+            }
+        }
+
+        private async void TxtCep_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string limpo = CepService.LimparCep(TxtCep.Text);
+            if (limpo.Length == 8 && limpo != _ultimoCepConsultado)
+            {
+                await ExecutarBuscaCepAsync(sobrescreverTudo: false);
+            }
+        }
+
+        private async void BtnBuscarCep_Click(object sender, RoutedEventArgs e)
+        {
+            await ExecutarBuscaCepAsync(sobrescreverTudo: true);
+        }
+
+        private async System.Threading.Tasks.Task ExecutarBuscaCepAsync(bool sobrescreverTudo)
+        {
+            string cepRaw = TxtCep.Text;
+            string limpo = CepService.LimparCep(cepRaw);
+            if (limpo.Length != 8)
+            {
+                if (sobrescreverTudo)
+                {
+                    MessageBox.Show("Informe um CEP válido com 8 dígitos.", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    TxtCep.Focus();
+                }
+                return;
+            }
+
+            if (_isConsultandoCep) return;
+            _isConsultandoCep = true;
+            _ultimoCepConsultado = limpo;
+
+            if (BtnBuscarCep != null)
+            {
+                BtnBuscarCep.IsEnabled = false;
+                BtnBuscarCep.Content = "⏳";
+            }
+
+            try
+            {
+                var res = await CepService.ConsultarCepAsync(limpo);
+                if (res.Sucesso)
+                {
+                    TxtCep.Text = res.Cep;
+                    TxtCidade.Text = res.Cidade;
+                    TxtUf.Text = res.Uf;
+
+                    if (!string.IsNullOrWhiteSpace(res.Logradouro))
+                    {
+                        if (sobrescreverTudo || string.IsNullOrWhiteSpace(TxtLogradouro.Text))
+                        {
+                            TxtLogradouro.Text = res.Logradouro;
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(res.Bairro))
+                    {
+                        if (sobrescreverTudo || string.IsNullOrWhiteSpace(TxtBairro.Text))
+                        {
+                            TxtBairro.Text = res.Bairro;
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(TxtNumero.Text))
+                    {
+                        TxtNumero.Focus();
+                    }
+                    else if (!string.IsNullOrWhiteSpace(TxtLogradouro.Text))
+                    {
+                        TxtLogradouro.Focus();
+                        TxtLogradouro.CaretIndex = TxtLogradouro.Text.Length;
+                    }
+                }
+                else if (sobrescreverTudo)
+                {
+                    MessageBox.Show(res.MensagemErro, "CEP", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (sobrescreverTudo)
+                {
+                    MessageBox.Show($"Falha na consulta do CEP: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            finally
+            {
+                _isConsultandoCep = false;
+                if (BtnBuscarCep != null)
+                {
+                    BtnBuscarCep.IsEnabled = true;
+                    BtnBuscarCep.Content = "🔍";
+                }
+            }
+        }
     }
 }

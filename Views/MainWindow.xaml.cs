@@ -85,6 +85,7 @@ namespace ControleEnvios.Views
             TxtCardSaiuEntrega.Text = m.SaiuEntrega.ToString();
             TxtCardRetirada.Text = m.AguardandoRetirada.ToString();
             TxtCardEntregues.Text = m.Entregues.ToString();
+            TxtCardDemora.Text = m.DemoraExcessiva.ToString();
 
             // Card Total Frete da Loja (calculado à parte do saldo / diferença de valor)
             TxtCardTotalFrete.Text = m.TotalFrete.ToString("C2");
@@ -433,11 +434,72 @@ namespace ControleEnvios.Views
             }
         }
 
+        private async void MenuAbrirReclamacaoApi_Click(object sender, RoutedEventArgs e)
+        {
+            if (GridEnvios.SelectedItem is not Envio env) return;
+
+            if (string.IsNullOrWhiteSpace(env.CodigoRastreio))
+            {
+                MessageBox.Show("Este envio não possui código de rastreio para abrir manifestação nos Correios.", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            TxtStatusInferior.Text = $"Conectando à API dos Correios para registrar manifestação do pedido #{env.NumeroPedido}...";
+            TxtStatusInferior.Foreground = new SolidColorBrush((Color)System.Windows.Media.ColorConverter.ConvertFromString("#38bdf8"));
+
+            var resultado = await CorreiosApiService.AbrirManifestacaoAsync(env);
+
+            if (resultado.Sucesso)
+            {
+                EnvioService.SalvarManifestacao(env.Id, resultado.Protocolo, "Aberto");
+                CarregarDados();
+                TxtStatusInferior.Text = $"✅ Protocolo {resultado.Protocolo} registrado com sucesso nos Correios!";
+            }
+            else
+            {
+                TxtStatusInferior.Text = $"⚠️ Abertura via API não aceita pelos Correios: {resultado.MotivoRecusa}";
+                TxtStatusInferior.Foreground = new SolidColorBrush((Color)System.Windows.Media.ColorConverter.ConvertFromString("#f87171"));
+            }
+
+            // Exibe modal com motivo exato, data de reenvio permitida e opções de contingência manual
+            var dialog = new ManifestacaoResultadoDialog(env, resultado, async (envioAlvo) =>
+            {
+                var retryRes = await CorreiosApiService.AbrirManifestacaoAsync(envioAlvo);
+                if (retryRes.Sucesso)
+                {
+                    EnvioService.SalvarManifestacao(envioAlvo.Id, retryRes.Protocolo, "Aberto");
+                    CarregarDados();
+                }
+                return retryRes;
+            })
+            {
+                Owner = this
+            };
+
+            dialog.ShowDialog();
+        }
+
         private void MenuCopiarAvisoCliente_Click(object sender, RoutedEventArgs e)
         {
             if (GridEnvios.SelectedItem is Envio env)
             {
                 CopiarTextoParaClipboard(env.AvisoTentativaCliente, $"Aviso WhatsApp ({env.AlertaTentativaFormatada}) para {env.Cliente}");
+            }
+        }
+
+        private void MenuCopiarAvisoAtraso_Click(object sender, RoutedEventArgs e)
+        {
+            if (GridEnvios.SelectedItem is Envio env)
+            {
+                CopiarTextoParaClipboard(env.AvisoAtrasoCliente, $"Mensagem de Atraso p/ {env.Cliente} (Pedido #{env.NumeroPedido})");
+            }
+        }
+
+        private void MenuCopiarReclamacaoCorreios_Click(object sender, RoutedEventArgs e)
+        {
+            if (GridEnvios.SelectedItem is Envio env)
+            {
+                CopiarTextoParaClipboard(env.DadosReclamacaoCorreios, $"Dados de Reclamação Correios (PI) para pedido #{env.NumeroPedido}");
             }
         }
 

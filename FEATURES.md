@@ -37,11 +37,12 @@ Aplicativo desktop para Windows (**C# .NET 8 / WPF**) que centraliza o controle 
 
 - **Arraste e solte** o PDF do pedido da Tray na janela de envio (ou selecione o arquivo).
 - Extração automática (via PdfPig) de:
-  - Nº do pedido, nome, CPF, celular e e-mail do cliente;
+  - Nº do pedido, nome, **CPF ou CNPJ** (com validação matemática e máscara dinâmica);
   - Endereço completo de entrega (logradouro, complemento, bairro, cidade, UF, CEP);
   - Itens do pedido com tamanhos, referências e quantidades;
   - Forma de envio, peso, valor do frete e total do pedido.
 - Normalização de telefones e remoção de acentos para buscas consistentes.
+- **Autopreenchimento de Endereço por CEP**: consulta instantânea ao ViaCEP com fallback automático para BrasilAPI e cache em memória.
 
 ## 3. 📥 Comprovantes de Coleta dos Correios
 
@@ -62,6 +63,7 @@ Aplicativo desktop para Windows (**C# .NET 8 / WPF**) que centraliza o controle 
 - Classificação unificada de status:
   - Postado · Em Trânsito · Saiu para Entrega · Aguardando Retirada · Entregue
   - Carteiro Não Atendido · Alerta / Retido · Aguardando Postagem · Não Encontrado
+- **Motor de Demora Excessiva / SLA**: cálculo de dias úteis com alertas visuais para remessas paradas há 5+ dias úteis sem movimentação.
 - **Linha do tempo visual** com data, hora, unidade de origem/destino e detalhes de cada evento.
 - Botão *Consultar Correios Agora* na tela de detalhes.
 - Banner de alerta para **tentativa de entrega não efetuada** (1/3, 2/3…), com botão para **copiar aviso pronto para WhatsApp**.
@@ -71,31 +73,39 @@ Aplicativo desktop para Windows (**C# .NET 8 / WPF**) que centraliza o controle 
 - Ícone na **bandeja do Windows** (System Tray); ao fechar a janela, o app continua rodando.
 - Verificação automática periódica dos rastreios (intervalo configurável, padrão 60 min).
 - **Notificações nativas do Windows** quando um envio muda para:
-  - 🟣 Saiu para Entrega · 🟠 Aguardando Retirada · 🟢 Entregue · 🔴 Problema / Retido
+  - 🟣 Saiu para Entrega · 🟠 Aguardando Retirada · 🟢 Entregue · 🔴 Problema / Retido · ⏱️ Demora Excessiva
 - Opção de **desativar avisos** por envio.
 - Menu da bandeja: *Abrir Dashboard*, *Atualizar Rastreios Agora*, *Configurações*, *Sair*.
 
 ## 6. 📊 Dashboard, Métricas e Filtros
 
 - Painel principal em **tema escuro** com cards de métricas.
+- Card de **⏱️ DEMORA / PARADOS** destacando encomendas atrasadas ou estagnadas há 5+ dias úteis.
 - Métricas financeiras:
   - **Total Frete** (cobrado dos clientes na loja);
   - **Total Correios** (custo real dos comprovantes de coleta);
   - **Diferença de Valor** entre frete cobrado e custo pago.
 - Busca instantânea por **pedido, cliente, código de rastreio ou nota fiscal**.
 - Filtros por status:
-  - Ativos · Tentativas sem sucesso · Cobrados sem PDF da Tray · Pendentes de entrega
+  - Ativos · ⏱️ Demora Excessiva / Parados · Tentativas sem sucesso · Cobrados sem PDF da Tray · Pendentes de entrega
   - Em Trânsito · Saiu para Entrega · Aguardando Retirada · Entregues · Alerta / Retidos
   - Pré-postagens · Arquivados · Todos (inclusive arquivados)
 - Filtro por origem: Todas · Estoque Próprio · Dropshipping.
 - Correção automática de inconsistências de status.
 
-## 7. ⚡ Ações Rápidas por Envio
+## 7. ⚡ Ações Rápidas por Envio e Reclamação Oficial (PI)
 
 Menu de contexto (botão direito) e colunas clicáveis na tabela:
 
+- ⚡ **Abrir Reclamação Oficial Correios (PI via API)**:
+  - Envio automático de manifestação direta pela API oficial dos Correios.
+  - Gravação do número de protocolo oficial (`PI-...`) gerado no banco de dados.
+  - Em caso de recusa da API (ex: ainda dentro do prazo contratual), exibe o **motivo exato** retornado pelos Correios e a **data permitida para reenvio** (1º dia útil pós-vencimento).
+  - Acesso com 1 clique para contingência manual no portal **Fale Conosco dos Correios** (copia os dados automaticamente e abre o site).
 - 📋 Copiar código de postagem / nº do pedido
-- 📱 Copiar mensagem de aviso ao cliente
+- 📱 Copiar mensagem de aviso ao cliente (carteiro não atendido)
+- ⏱️ Copiar mensagem de atraso / demora ao cliente (WhatsApp)
+- 📋 Copiar dados formatados p/ reclamação Correios (PI)
 - 📦 Ver produtos do pedido
 - 🏬 Ver detalhes da origem / fornecedor
 - 👤 Ver detalhes do cliente / destinatário

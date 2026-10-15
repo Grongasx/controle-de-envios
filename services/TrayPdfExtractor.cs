@@ -76,10 +76,10 @@ namespace ControleEnvios.Services
 
             if (string.IsNullOrWhiteSpace(envio.ClienteCpf))
             {
-                var mCpf = Regex.Match(fullRaw, @"CPF:\s*([\d\.\-]+)", RegexOptions.IgnoreCase);
-                if (mCpf.Success)
+                string? docFall = ExtrairCpfOuCnpjDeTexto(fullRaw);
+                if (!string.IsNullOrWhiteSpace(docFall))
                 {
-                    envio.ClienteCpf = mCpf.Groups[1].Value.Trim();
+                    envio.ClienteCpf = docFall;
                 }
             }
 
@@ -244,16 +244,16 @@ namespace ControleEnvios.Services
                 }
             }
 
-            // Coluna 2: Informações adicionais / CPF (Left entre 175 e 290, Y entre 650 e 785)
+            // Coluna 2: Informações adicionais / CPF ou CNPJ (Left entre 175 e 290, Y entre 650 e 785)
             var col2Words = wordsP1.Where(w => w.BoundingBox.Left >= 175 && w.BoundingBox.Left < 290 &&
                                                w.BoundingBox.Bottom >= 650 && w.BoundingBox.Bottom <= 785);
             var col2Lines = AgruparPalavrasEmLinhas(col2Words, yTolerance: 3.5);
             foreach (var l in col2Lines)
             {
-                var mCpf = Regex.Match(l, @"(?:CPF:\s*)?(\d{3}\.\d{3}\.\d{3}-\d{2})", RegexOptions.IgnoreCase);
-                if (mCpf.Success && string.IsNullOrWhiteSpace(envio.ClienteCpf))
+                string? doc = ExtrairCpfOuCnpjDeTexto(l);
+                if (!string.IsNullOrWhiteSpace(doc) && string.IsNullOrWhiteSpace(envio.ClienteCpf))
                 {
-                    envio.ClienteCpf = mCpf.Groups[1].Value.Trim();
+                    envio.ClienteCpf = doc;
                     break;
                 }
             }
@@ -458,15 +458,15 @@ namespace ControleEnvios.Services
 
             if (lines.Count == 0) return;
 
-            // 2. Extrai e remove linhas explícitas de CPF e Telefone
+            // 2. Extrai e remove linhas explícitas de CPF, CNPJ e Telefone
             // (evita que caiam dentro do Endereço de entrega!)
             for (int i = lines.Count - 1; i >= 0; i--)
             {
-                var mCpf = Regex.Match(lines[i], @"(?:CPF:\s*)?(\d{3}\.\d{3}\.\d{3}-\d{2})", RegexOptions.IgnoreCase);
-                if (mCpf.Success && (lines[i].Contains("CPF") || lines[i].Trim().Length <= 18))
+                string? doc = ExtrairCpfOuCnpjDeTexto(lines[i]);
+                if (!string.IsNullOrWhiteSpace(doc))
                 {
                     if (string.IsNullOrWhiteSpace(envio.ClienteCpf))
-                        envio.ClienteCpf = mCpf.Groups[1].Value.Trim();
+                        envio.ClienteCpf = doc;
                     lines.RemoveAt(i);
                     continue;
                 }
@@ -868,5 +868,96 @@ namespace ControleEnvios.Services
         }
 
         private static string RemoverAcentos(string texto) => EnvioService.RemoverAcentos(texto);
+
+        public static bool ValidarCpf(string? cpf)
+        {
+            if (string.IsNullOrWhiteSpace(cpf)) return false;
+            string dig = Digitos(cpf);
+            if (dig.Length != 11) return false;
+            if (new string(dig[0], 11) == dig) return false;
+
+            int[] mult1 = { 10, 9, 8, 7, 6, 5, 4, 3, 2 };
+            int[] mult2 = { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2 };
+
+            int soma = 0;
+            for (int i = 0; i < 9; i++) soma += (dig[i] - '0') * mult1[i];
+            int resto = soma % 11;
+            int dig1 = resto < 2 ? 0 : 11 - resto;
+            if (dig[9] - '0' != dig1) return false;
+
+            soma = 0;
+            for (int i = 0; i < 10; i++) soma += (dig[i] - '0') * mult2[i];
+            resto = soma % 11;
+            int dig2 = resto < 2 ? 0 : 11 - resto;
+            return dig[10] - '0' == dig2;
+        }
+
+        public static bool ValidarCnpj(string? cnpj)
+        {
+            if (string.IsNullOrWhiteSpace(cnpj)) return false;
+            string dig = Digitos(cnpj);
+            if (dig.Length != 14) return false;
+            if (new string(dig[0], 14) == dig) return false;
+
+            int[] mult1 = { 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 };
+            int[] mult2 = { 6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 };
+
+            int soma = 0;
+            for (int i = 0; i < 12; i++) soma += (dig[i] - '0') * mult1[i];
+            int resto = soma % 11;
+            int dig1 = resto < 2 ? 0 : 11 - resto;
+            if (dig[12] - '0' != dig1) return false;
+
+            soma = 0;
+            for (int i = 0; i < 13; i++) soma += (dig[i] - '0') * mult2[i];
+            resto = soma % 11;
+            int dig2 = resto < 2 ? 0 : 11 - resto;
+            return dig[13] - '0' == dig2;
+        }
+
+        public static string FormatarCpfCnpj(string? doc)
+        {
+            if (string.IsNullOrWhiteSpace(doc)) return string.Empty;
+            string dig = Digitos(doc);
+            if (dig.Length == 11)
+                return $"{dig.Substring(0, 3)}.{dig.Substring(3, 3)}.{dig.Substring(6, 3)}-{dig.Substring(9, 2)}";
+            if (dig.Length == 14)
+                return $"{dig.Substring(0, 2)}.{dig.Substring(2, 3)}.{dig.Substring(5, 3)}/{dig.Substring(8, 4)}-{dig.Substring(12, 2)}";
+            return doc.Trim();
+        }
+
+        public static string? ExtrairCpfOuCnpjDeTexto(string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto)) return null;
+
+            // 1. Tenta CNPJ formatado primeiro (14 dígitos)
+            var mCnpj = Regex.Match(texto, @"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b");
+            if (mCnpj.Success)
+            {
+                string val = mCnpj.Groups[1].Value.Trim();
+                if (ValidarCnpj(val)) return val;
+            }
+
+            // 2. Tenta CPF formatado (11 dígitos)
+            var mCpf = Regex.Match(texto, @"\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b");
+            if (mCpf.Success)
+            {
+                string val = mCpf.Groups[1].Value.Trim();
+                if (ValidarCpf(val)) return val;
+            }
+
+            // 3. Tenta prefixos explícitos "CNPJ:", "CPF:", "Doc:"
+            var mPrefix = Regex.Match(texto, @"(?:CNPJ|CPF|Doc(?:umento)?):\s*([\d\.\-\/]+)", RegexOptions.IgnoreCase);
+            if (mPrefix.Success)
+            {
+                string raw = mPrefix.Groups[1].Value.Trim();
+                string d = Digitos(raw);
+                if (d.Length == 14 && ValidarCnpj(d)) return FormatarCpfCnpj(d);
+                if (d.Length == 11 && ValidarCpf(d)) return FormatarCpfCnpj(d);
+                if (d.Length == 11 || d.Length == 14) return FormatarCpfCnpj(d);
+            }
+
+            return null;
+        }
     }
 }

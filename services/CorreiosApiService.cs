@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using ControleEnvios.Data;
 using ControleEnvios.Models;
@@ -22,6 +24,18 @@ namespace ControleEnvios.Services
         public bool Entregue { get; set; }
         public string Erro { get; set; } = string.Empty;
         public List<EventoRastreio> Eventos { get; set; } = new();
+    }
+
+    public class ResultadoManifestacao
+    {
+        public bool Sucesso { get; set; }
+        public string Protocolo { get; set; } = string.Empty;
+        public string Mensagem { get; set; } = string.Empty;
+        public string MotivoRecusa { get; set; } = string.Empty;
+        public DateTime? DataPermitidaReenvio { get; set; }
+        public string DataPermitidaReenvioFormatada => DataPermitidaReenvio.HasValue ? DataPermitidaReenvio.Value.ToString("dd/MM/yyyy") : "";
+        public string DetalheCompleto { get; set; } = string.Empty;
+        public bool PodeReenviarManualmente => true;
     }
 
     public static class CorreiosApiService
@@ -331,6 +345,196 @@ namespace ControleEnvios.Services
                     Sucesso = false,
                     Codigo = codLimpo,
                     Erro = ex.Message
+                };
+            }
+        }
+
+        public static async Task<ResultadoManifestacao> AbrirManifestacaoAsync(Envio envio)
+        {
+            if (envio == null || string.IsNullOrWhiteSpace(envio.CodigoRastreio))
+            {
+                return new ResultadoManifestacao
+                {
+                    Sucesso = false,
+                    MotivoRecusa = "O envio não possui código de rastreio dos Correios.",
+                    Mensagem = "Não é possível registrar manifestação sem código de rastreio."
+                };
+            }
+
+            string token;
+            try
+            {
+                token = await ObterTokenAsync();
+            }
+            catch (Exception ex)
+            {
+                return new ResultadoManifestacao
+                {
+                    Sucesso = false,
+                    MotivoRecusa = "Credenciais dos Correios não configuradas ou token inválido.",
+                    Mensagem = $"Falha na autenticação: {ex.Message}",
+                    DataPermitidaReenvio = DateTime.Today.AddDays(1)
+                };
+            }
+
+            // Monta payload oficial da API de Manifestações / CWS Correios
+            var payload = new
+            {
+                codigoObjeto = envio.CodigoRastreio.Trim().ToUpperInvariant(),
+                tipoManifestante = "R", // R = Remetente
+                codigoMotivo = "1", // 1 = Atraso na entrega
+                descricaoManifestacao = string.IsNullOrWhiteSpace(envio.MotivoDemora)
+                    ? $"Objeto em atraso sem atualização recente no rastreio para o destinatário {envio.Cliente}."
+                    : $"{envio.MotivoDemora}. Solicitamos providências e localização do pacote.",
+                remetente = new
+                {
+                    nome = envio.OrigemTipo == "DROPSHIPPING" && !string.IsNullOrWhiteSpace(envio.FornecedorNome)
+                        ? envio.FornecedorNome
+                        : "WebRiders",
+                    tipoPessoa = "J",
+                    cnpjCpf = DatabaseContext.ObterConfig("correios_usuario", "")
+                },
+                destinatario = new
+                {
+                    nome = envio.Cliente,
+                    cpfCnpj = Regex.Replace(envio.ClienteCpf ?? "", @"[^\d]", ""),
+                    email = envio.ClienteEmail,
+                    telefone = Regex.Replace(envio.ClienteCelular ?? "", @"[^\d]", ""),
+                    logradouro = envio.EnderecoEntrega,
+                    cidade = envio.CidadeDestino,
+                    uf = envio.UfDestino,
+                    cep = Regex.Replace(envio.CepDestino ?? "", @"[^\d]", "")
+                },
+                dadosEncomenda = new
+                {
+                    numeroNotaFiscal = envio.NotaFiscal,
+                    valorDeclarado = envio.ValorPedido,
+                    peso = envio.PesoGramas
+                }
+            };
+
+            string jsonPayload = JsonSerializer.Serialize(payload);
+            using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, "/manifestacoes/v1/manifestacoes")
+                {
+                    Content = content
+                };
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await _httpClient.SendAsync(request);
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                // 1. Sucesso (HTTP 200, 201, 202)
+                if (response.IsSuccessStatusCode)
+                {
+                    string protocolo = "";
+                    string msgSucesso = "Manifestação registrada com sucesso nos Correios.";
+
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(responseBody);
+                        var root = doc.RootElement;
+                        if (root.TryGetProperty("numeroManifestacao", out var p1)) protocolo = p1.GetString() ?? "";
+                        else if (root.TryGetProperty("protocolo", out var p2)) protocolo = p2.GetString() ?? "";
+                        else if (root.TryGetProperty("numero", out var p3)) protocolo = p3.GetString() ?? "";
+                        else if (root.TryGetProperty("id", out var p4)) protocolo = p4.GetString() ?? "";
+                        else if (root.TryGetProperty("codigoProtocolo", out var p5)) protocolo = p5.GetString() ?? "";
+
+                        if (root.TryGetProperty("mensagem", out var pMsg)) msgSucesso = pMsg.GetString() ?? msgSucesso;
+                    }
+                    catch { }
+
+                    if (string.IsNullOrWhiteSpace(protocolo))
+                    {
+                        protocolo = $"PI-{DateTime.Now:yyyyMMddHHmm}";
+                    }
+
+                    return new ResultadoManifestacao
+                    {
+                        Sucesso = true,
+                        Protocolo = protocolo,
+                        Mensagem = msgSucesso,
+                        DetalheCompleto = responseBody
+                    };
+                }
+
+                // 2. Resposta Negativa / Recusa (ex: Dentro do prazo, serviço não habilitado, já existente)
+                string motivoRecusa = "";
+                DateTime? dataPermitida = null;
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    var root = doc.RootElement;
+
+                    if (root.TryGetProperty("mensagem", out var pMsg))
+                        motivoRecusa = pMsg.GetString() ?? "";
+                    else if (root.TryGetProperty("descricao", out var pDesc))
+                        motivoRecusa = pDesc.GetString() ?? "";
+                    else if (root.TryGetProperty("msgs", out var pMsgs) && pMsgs.ValueKind == JsonValueKind.Array && pMsgs.GetArrayLength() > 0)
+                        motivoRecusa = pMsgs[0].GetString() ?? "";
+                    else if (root.TryGetProperty("erros", out var pErros) && pErros.ValueKind == JsonValueKind.Array && pErros.GetArrayLength() > 0)
+                    {
+                        var e0 = pErros[0];
+                        motivoRecusa = e0.TryGetProperty("mensagem", out var em) ? em.GetString() ?? "" : e0.ToString();
+                    }
+                }
+                catch
+                {
+                    motivoRecusa = responseBody;
+                }
+
+                if (string.IsNullOrWhiteSpace(motivoRecusa))
+                {
+                    motivoRecusa = $"Os Correios recusaram a abertura da manifestação (HTTP {(int)response.StatusCode}).";
+                }
+
+                // Extração inteligente de data do motivo (ex: "prazo previsto até 18/10/2026")
+                var mData = Regex.Match(motivoRecusa, @"\b(\d{2}/\d{2}/\d{4})\b");
+                if (mData.Success && DateTime.TryParseExact(mData.Groups[1].Value, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dtLimite))
+                {
+                    // Próximo dia útil após a data limite
+                    var dtNext = dtLimite.AddDays(1);
+                    while (dtNext.DayOfWeek == DayOfWeek.Saturday || dtNext.DayOfWeek == DayOfWeek.Sunday)
+                        dtNext = dtNext.AddDays(1);
+                    dataPermitida = dtNext;
+                }
+                else
+                {
+                    // Cálculo estimado com base na modalidade e data de envio
+                    int diasLimite = (envio.FormaEnvioLoja ?? "").ToUpperInvariant().Contains("SEDEX") ? 5 : 10;
+                    DateTime dtBase = DateTime.TryParse(envio.DataEnvio, out var dEnv) ? dEnv : envio.CreatedAt;
+                    dataPermitida = dtBase.AddDays(diasLimite + 1);
+                    while (dataPermitida.Value.DayOfWeek == DayOfWeek.Saturday || dataPermitida.Value.DayOfWeek == DayOfWeek.Sunday)
+                        dataPermitida = dataPermitida.Value.AddDays(1);
+
+                    if (dataPermitida < DateTime.Today)
+                    {
+                        dataPermitida = DateTime.Today;
+                    }
+                }
+
+                return new ResultadoManifestacao
+                {
+                    Sucesso = false,
+                    MotivoRecusa = motivoRecusa,
+                    DataPermitidaReenvio = dataPermitida,
+                    Mensagem = $"Abertura automática negada pelos Correios: {motivoRecusa}",
+                    DetalheCompleto = responseBody
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResultadoManifestacao
+                {
+                    Sucesso = false,
+                    MotivoRecusa = $"Falha de conexão com a API dos Correios: {ex.Message}",
+                    DataPermitidaReenvio = DateTime.Today.AddDays(1),
+                    Mensagem = ex.Message
                 };
             }
         }

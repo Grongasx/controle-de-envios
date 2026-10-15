@@ -61,6 +61,8 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="8"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Card Total -->
@@ -103,8 +105,16 @@
                 </StackPanel>
             </Border>
 
-            <!-- Card Total Frete Loja (Calculado à parte) -->
+            <!-- Card Demora Excessiva / Parados -->
             <Border Grid.Column="10" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="⏱️ DEMORA / PARADOS" FontSize="10" FontWeight="Bold" Foreground="#f43f5e" ToolTip="Encomendas paradas sem movimentação há 5+ dias úteis ou com atraso expressivo"/>
+                    <TextBlock x:Name="TxtCardDemora" Text="0" FontSize="18" FontWeight="Bold" Foreground="#f43f5e" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card Total Frete Loja (Calculado à parte) -->
+            <Border Grid.Column="12" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="TOTAL FRETE" FontSize="10" FontWeight="Bold" Foreground="#a78bfa" ToolTip="Total consolidado de frete pago pelos clientes / cobrado nos pedidos da loja"/>
                     <TextBlock x:Name="TxtCardTotalFrete" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#a78bfa" Margin="0,4,0,0"/>
@@ -112,7 +122,7 @@
             </Border>
 
             <!-- Card Total Gasto Correios (Cobrado com base nos e-mails) -->
-            <Border Grid.Column="12" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+            <Border Grid.Column="14" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="TOTAL CORREIOS" FontSize="10" FontWeight="Bold" Foreground="#38bdf8" ToolTip="Total consolidado cobrado pelos Correios (comprovantes e-mails de coleta)"/>
                     <TextBlock x:Name="TxtCardGastoCorreios" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#38bdf8" Margin="0,4,0,0"/>
@@ -120,7 +130,7 @@
             </Border>
 
             <!-- Card Diferença de Valor (Diferença entre Frete Loja e Correios) -->
-            <Border Grid.Column="14" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
+            <Border Grid.Column="16" Background="#1e293b" CornerRadius="8" Padding="10" BorderBrush="#334155" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="DIFERENÇA DE VALOR" FontSize="10" FontWeight="Bold" Foreground="#94a3b8" ToolTip="Diferença consolidada entre frete cobrado na loja e custo pago aos Correios"/>
                     <TextBlock x:Name="TxtCardDiferencaValor" Text="R$ 0,00" FontSize="18" FontWeight="Bold" Foreground="#34d399" Margin="0,4,0,0"/>
@@ -145,6 +155,7 @@
                 <!-- Filtro Status -->
                 <ComboBox x:Name="CmbFiltroStatus" Grid.Column="2" SelectionChanged="CmbFiltros_SelectionChanged">
                     <ComboBoxItem Content="Todos os Status (Ativos)" Tag="TODOS" IsSelected="True"/>
+                    <ComboBoxItem Content="⏱️ Demora Excessiva / Parados" Tag="DEMORA_EXCESSIVA"/>
                     <ComboBoxItem Content="⚠️ Tentativas s/ Sucesso (1/3, 2/3...)" Tag="NAO_ATENDIDO"/>
                     <ComboBoxItem Content="⚠️ Cobrados s/ PDF da Tray" Tag="COBRADOS_SEM_PDF"/>
                     <ComboBoxItem Content="Pendentes de Entrega" Tag="PENDENTES_ENTREGA"/>
@@ -236,7 +247,10 @@
                     <ContextMenu Background="#1e293b" Foreground="#f8fafc" BorderBrush="#334155">
                         <MenuItem Header="📋 Copiar Código de Postagem" Click="MenuCopiarCodigo_Click" Foreground="#38bdf8" FontWeight="Bold"/>
                         <MenuItem Header="📋 Copiar Pedido #" Click="MenuCopiarPedido_Click" Foreground="#f8fafc"/>
-                        <MenuItem Header="📱 Copiar Mensagem de Aviso ao Cliente" Click="MenuCopiarAvisoCliente_Click" Foreground="#f97316" FontWeight="SemiBold"/>
+                        <MenuItem Header="⚡ Abrir Reclamação Oficial Correios (PI via API)" Click="MenuAbrirReclamacaoApi_Click" Foreground="#38bdf8" FontWeight="Bold"/>
+                        <MenuItem Header="📱 Copiar Mensagem de Aviso ao Cliente (Não Atendido)" Click="MenuCopiarAvisoCliente_Click" Foreground="#f97316" FontWeight="SemiBold"/>
+                        <MenuItem Header="⏱️ Copiar Mensagem de Atraso ao Cliente" Click="MenuCopiarAvisoAtraso_Click" Foreground="#f43f5e" FontWeight="SemiBold"/>
+                        <MenuItem Header="📋 Copiar Dados p/ Reclamação Correios (PI)" Click="MenuCopiarReclamacaoCorreios_Click" Foreground="#94a3b8"/>
                         <Separator Background="#334155"/>
                         <MenuItem Header="📦 Ver Produtos do Pedido" Click="MenuVerProdutos_Click" Foreground="#f8fafc"/>
                         <MenuItem Header="🏬 Ver Detalhes da Origem" Click="MenuVerOrigem_Click" Foreground="#f8fafc"/>
@@ -273,7 +287,7 @@
                                             <StackPanel>
                                                 <TextBlock Text="👤 DESTINATÁRIO / CLIENTE" FontWeight="Bold" Foreground="#38bdf8" FontSize="11" Margin="0,0,0,4"/>
                                                 <TextBlock Text="{Binding Cliente}" FontWeight="Bold" FontSize="13" Foreground="#f8fafc"/>
-                                                <TextBlock Text="{Binding ClienteCpf, StringFormat='CPF: {0}'}" FontSize="11" Foreground="#94a3b8" Margin="0,2,0,0"/>
+                                                <TextBlock Text="{Binding ClienteDocumentoFormatado, StringFormat='Doc (CPF/CNPJ): {0}'}" FontSize="11" Foreground="#94a3b8" Margin="0,2,0,0"/>
                                                 <TextBlock Text="{Binding ClienteCelular, StringFormat='WhatsApp/Cel: {0}'}" FontSize="11" Foreground="#94a3b8"/>
                                                 <TextBlock Text="{Binding ClienteEmail, StringFormat='E-mail: {0}'}" FontSize="11" Foreground="#94a3b8"/>
                                                 <Separator Background="#334155" Margin="0,6,0,6"/>
@@ -380,7 +394,7 @@
                     </DataGridTemplateColumn>
 
                     <!-- Status Correios (Clicável para abrir histórico detalhado de rastreio) -->
-                    <DataGridTemplateColumn Header="STATUS CORREIOS" Width="145">
+                    <DataGridTemplateColumn Header="STATUS CORREIOS" Width="170">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Click="BtnVerStatus_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0" Margin="0" ToolTip="Clique para abrir o histórico detalhado dos Correios">

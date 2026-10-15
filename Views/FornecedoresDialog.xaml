@@ -77,7 +77,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="CNPJ / CPF:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
-                                <TextBox x:Name="TxtCnpj" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                                <TextBox x:Name="TxtCnpj" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" TextChanged="TxtCnpj_TextChanged" MaxLength="18" ToolTip="Informe CNPJ (14 dígitos) ou CPF (11 dígitos)"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Telefone / WhatsApp:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
@@ -96,13 +96,20 @@
 
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="150"/>
                                 <ColumnDefinition Width="12"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="CEP:" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>
-                                <TextBox x:Name="TxtCep" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtCep" Background="#0f172a" Foreground="#f8fafc" BorderBrush="#334155" Padding="6" TextChanged="TxtCep_TextChanged" LostFocus="TxtCep_LostFocus"/>
+                                    <Button Grid.Column="1" x:Name="BtnBuscarCep" Content="🔍" Background="#334155" Foreground="#38bdf8" BorderThickness="0" Padding="8,4" Margin="4,0,0,0" ToolTip="Buscar endereço pelo CEP (ViaCEP / BrasilAPI)" Click="BtnBuscarCep_Click" Cursor="Hand"/>
+                                </Grid>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Logradouro (Rua / Av):" Foreground="#cbd5e1" FontSize="11" Margin="0,0,0,4"/>

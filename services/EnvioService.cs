@@ -88,6 +88,10 @@ namespace ControleEnvios.Services
                         )) > 0
                     ))";
                 }
+                else if (statusFiltro == "DEMORA_EXCESSIVA")
+                {
+                    query += " AND e.entregue = 0 AND (e.desativar_avisos IS NULL OR e.desativar_avisos = 0)";
+                }
                 else
                 {
                     query += " AND e.status_correios = @st";
@@ -155,6 +159,9 @@ namespace ControleEnvios.Services
                     Arquivado = !reader.IsDBNull(reader.GetOrdinal("arquivado")) && Convert.ToInt32(reader["arquivado"]) == 1,
                     DataEntrega = reader.IsDBNull(reader.GetOrdinal("data_entrega")) ? "" : reader.GetString(reader.GetOrdinal("data_entrega")),
                     DataArquivamento = reader.IsDBNull(reader.GetOrdinal("data_arquivamento")) ? "" : reader.GetString(reader.GetOrdinal("data_arquivamento")),
+                    ProtocoloReclamacao = reader.IsDBNull(reader.GetOrdinal("protocolo_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("protocolo_reclamacao")),
+                    DataReclamacao = reader.IsDBNull(reader.GetOrdinal("data_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("data_reclamacao")),
+                    StatusReclamacao = reader.IsDBNull(reader.GetOrdinal("status_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("status_reclamacao")),
                     ResumoProdutos = reader.IsDBNull(reader.GetOrdinal("resumo_produtos")) ? "" : reader.GetString(reader.GetOrdinal("resumo_produtos")),
                     TentativasEntregaCount = reader.IsDBNull(reader.GetOrdinal("tentativas_nao_atendidas")) ? 0 : Convert.ToInt32(reader["tentativas_nao_atendidas"])
                 };
@@ -171,6 +178,11 @@ namespace ControleEnvios.Services
                 }
 
                 lista.Add(env);
+            }
+
+            if (statusFiltro == "DEMORA_EXCESSIVA")
+            {
+                lista = lista.Where(e => e.TemDemoraExcessiva).ToList();
             }
 
             return lista;
@@ -225,7 +237,10 @@ namespace ControleEnvios.Services
                         UltimoEventoLocal = reader.IsDBNull(reader.GetOrdinal("ultimo_evento_local")) ? "" : reader.GetString(reader.GetOrdinal("ultimo_evento_local")),
                         Entregue = reader.GetInt32(reader.GetOrdinal("entregue")) == 1,
                         Observacoes = reader.IsDBNull(reader.GetOrdinal("observacoes")) ? "" : reader.GetString(reader.GetOrdinal("observacoes")),
-                        CaminhoPdf = reader.IsDBNull(reader.GetOrdinal("caminho_pdf")) ? "" : reader.GetString(reader.GetOrdinal("caminho_pdf"))
+                        CaminhoPdf = reader.IsDBNull(reader.GetOrdinal("caminho_pdf")) ? "" : reader.GetString(reader.GetOrdinal("caminho_pdf")),
+                        ProtocoloReclamacao = reader.IsDBNull(reader.GetOrdinal("protocolo_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("protocolo_reclamacao")),
+                        DataReclamacao = reader.IsDBNull(reader.GetOrdinal("data_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("data_reclamacao")),
+                        StatusReclamacao = reader.IsDBNull(reader.GetOrdinal("status_reclamacao")) ? "" : reader.GetString(reader.GetOrdinal("status_reclamacao"))
                     };
                 }
             }
@@ -522,6 +537,25 @@ namespace ControleEnvios.Services
             return mudou;
         }
 
+        public static void SalvarManifestacao(int envioId, string protocolo, string status, string data = "")
+        {
+            using var conn = DatabaseContext.GetConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                UPDATE envios SET
+                    protocolo_reclamacao = @prot,
+                    status_reclamacao = @st,
+                    data_reclamacao = @dt,
+                    updated_at = @upd
+                WHERE id = @id";
+            cmd.Parameters.AddWithValue("@id", envioId);
+            cmd.Parameters.AddWithValue("@prot", protocolo ?? "");
+            cmd.Parameters.AddWithValue("@st", status ?? "Aberto");
+            cmd.Parameters.AddWithValue("@dt", string.IsNullOrWhiteSpace(data) ? DateTime.Now.ToString("dd/MM/yyyy HH:mm") : data);
+            cmd.Parameters.AddWithValue("@upd", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            cmd.ExecuteNonQuery();
+        }
+
         public static Metricas ObterMetricas()
         {
             var m = new Metricas();
@@ -590,6 +624,14 @@ namespace ControleEnvios.Services
                     LOWER(h.descricao) LIKE '%não entregue%'
                 );";
             m.TentativasNaoAtendidas = Convert.ToInt32(cmd.ExecuteScalar());
+
+            // Encomendas com Demora Excessiva / Estagnação nos Correios
+            try
+            {
+                var ativosPendentes = ListarEnvios(statusFiltro: "PENDENTES_ENTREGA");
+                m.DemoraExcessiva = ativosPendentes.Count(e => e.TemDemoraExcessiva);
+            }
+            catch { }
 
             return m;
         }
